@@ -1,0 +1,64 @@
+name: Stargazer Sea
+
+# Würfelt neue Krabben und schreibt crabs.json. Veröffentlicht wird die Seite von
+# Cloudflare Pages: Es baut nach jedem Commit auf main automatisch neu.
+
+on:
+  # Jemand gibt einen Stern -> neue Krabbe
+  watch:
+    types: [started]
+  # Stündlich: Unstars abgleichen und junge Krabben nach 48 Std. auspacken (Hut entsiegeln)
+  schedule:
+    - cron: "23 * * * *"
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Notbremse ausschalten (nur wenn wirklich sehr viele Sterne weg sind)"
+        type: boolean
+        default: false
+
+# Nie zwei Läufe gleichzeitig (sonst Konflikte in crabs.json).
+concurrency:
+  group: stargazer-sea
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stargazer abgleichen
+        run: python3 scripts/sync_stargazers.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORCE: ${{ github.event.inputs.force == 'true' && '1' || '0' }}
+          # Geheimer Schlüssel: Hut und Nummer bleiben bis zum Auspacken verschlüsselt
+          KRABBEN_SCHLUESSEL: ${{ secrets.KRABBEN_SCHLUESSEL }}
+
+      - name: crabs.json committen
+        run: |
+          git config user.name "stargazer-sea[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add crabs.json
+          if git diff --cached --quiet; then
+            echo "Nichts zu committen."
+            exit 0
+          fi
+          git commit -m "🦀 Krabben-Meer aktualisiert"
+          for i in 1 2 3; do
+            if git push; then exit 0; fi
+            echo "Push abgelehnt, neuer Versuch ($i/3) …"
+            sleep $((i * 5))
+            git pull --rebase
+          done
+          echo "Push nach 3 Versuchen fehlgeschlagen." >&2
+          exit 1

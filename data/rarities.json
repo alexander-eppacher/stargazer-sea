@@ -1,0 +1,109 @@
+{
+  "series": 100,
+  "tiers": [
+    {
+      "id": "common",
+      "name": "Gewöhnlich",
+      "color": "#a3b1c2",
+      "weight": 50,
+      "hats": [
+        {
+          "id": "none",
+          "name": "Kein Hut"
+        },
+        {
+          "id": "beanie",
+          "name": "Bommelmütze"
+        },
+        {
+          "id": "cap",
+          "name": "Baseball-Cap"
+        }
+      ]
+    },
+    {
+      "id": "uncommon",
+      "name": "Ungewöhnlich",
+      "color": "#4ade80",
+      "weight": 25,
+      "hats": [
+        {
+          "id": "sailor",
+          "name": "Matrosenmütze"
+        },
+        {
+          "id": "propeller",
+          "name": "Propellermütze"
+        },
+        {
+          "id": "flower",
+          "name": "Seeblume"
+        }
+      ]
+    },
+    {
+      "id": "rare",
+      "name": "Selten",
+      "color": "#38bdf8",
+      "weight": 15,
+      "hats": [
+        {
+          "id": "tophat",
+          "name": "Zylinder"
+        },
+        {
+          "id": "pirate",
+          "name": "Piratenhut"
+        },
+        {
+          "id": "viking",
+          "name": "Wikingerhelm"
+        }
+      ]
+    },
+    {
+      "id": "epic",
+      "name": "Episch",
+      "color": "#c084fc",
+      "weight": 7,
+      "hats": [
+        {
+          "id": "wizard",
+          "name": "Zauberhut"
+        },
+        {
+          "id": "shark",
+          "name": "Haifischflosse"
+        }
+      ]
+    },
+    {
+      "id": "legendary",
+      "name": "Legendär",
+      "color": "#fbbf24",
+      "weight": 2.5,
+      "hats": [
+        {
+          "id": "crown",
+          "name": "Goldkrone"
+        },
+        {
+          "id": "halo",
+          "name": "Heiligenschein"
+        }
+      ]
+    },
+    {
+      "id": "mythic",
+      "name": "Mythisch",
+      "color": "#f472b6",
+      "weight": 0.5,
+      "hats": [
+        {
+          "id": "starcrown",
+          "name": "Sternenkrone"
+        }
+      ]
+    }
+  ]
+}

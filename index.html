@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Stargazer Sea</title>
+  <meta name="description" content="Ein Papier-Meer aller Stargazer: Jeder GitHub-Stern wird zu einer Krabbe mit zufälligem Hut." />
+  <meta name="theme-color" content="#4aaedb" />
+  <!-- Vorschau beim Teilen (Discord, WhatsApp, X, …). Bilder brauchen die volle Adresse. -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://sea.eppacher.net/" />
+  <meta property="og:title" content="Stargazer Sea 🦀" />
+  <meta property="og:description" content="Jeder Stern wird zur Krabbe: ein animiertes Papier-Meer aller Stargazer, jede Krabbe mit eigenem Hut und nur einmal vorhanden." />
+  <meta property="og:image" content="https://sea.eppacher.net/assets/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Stargazer Sea 🦀" />
+  <meta name="twitter:description" content="Jeder Stern wird zur Krabbe – ein Papier-Meer aller Stargazer." />
+  <meta name="twitter:image" content="https://sea.eppacher.net/assets/og.png" />
+  <link rel="icon" href="assets/crab.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&amp;family=Nunito:wght@400;700;800&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="js/i18n.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/build/three.module.min.js",
+        "three/addons/": "./vendor/three/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body class="intro-flying">
+  <canvas id="sea"></canvas>
+
+  <!-- Ladebildschirm -->
+  <div id="loader">
+    <div class="loader-card">
+      <div class="loader-crab"><img src="assets/crab.png" alt="" /></div>
+      <p><span data-i18n="load.dive">Tauche ab</span><span class="dots"></span></p>
+      <div class="load-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="load-fill"></div></div>
+      <div class="load-info"><span class="load-pct">0%</span> <span class="load-step" data-i18n="load.three">Lade three.js</span></div>
+    </div>
+  </div>
+  <script>I18N.apply(document.getElementById('loader'));</script>
+  <script src="js/intro.js"></script>
+
+  <!-- Titel -->
+  <header id="hud-title" class="panel">
+    <img src="assets/crab.png" alt="" class="logo" />
+    <div>
+      <h1>Stargazer Sea</h1>
+      <p class="sub"><span id="crab-count">0</span> <span data-i18n="title.sub">Krabben leben hier</span></p>
+    </div>
+    <div class="lang-switch" role="group" data-i18n-attr="aria-label:lang.label">
+      <button type="button" data-lang="de" lang="de" title="Deutsch">DE</button>
+      <button type="button" data-lang="en" lang="en" title="English">EN</button>
+    </div>
+  </header>
+
+  <!-- Aktionen oben rechts -->
+  <div id="hud-actions">
+    <div class="action-row">
+      <a id="star-btn" class="btn btn-star" href="#" target="_blank" rel="noopener">
+        <span class="star-icon">★</span> <span class="star-label" data-i18n="star.label">Jeder Stern wird zur Krabbe</span>
+      </a>
+      <button id="album-btn" class="btn icon-btn" data-i18n-attr="title:album.title" title="Sammelalbum">📖<span id="album-badge" class="badge hidden"></span></button>
+      <button id="sound-btn" class="btn icon-btn" aria-pressed="false" data-i18n-attr="title:sound.on" title="Unterwasser-Geräusche an">🔇</button>
+    </div>
+    <div class="search panel">
+      <input id="search" type="search" placeholder="Finde deine Krabbe… (@name)" data-i18n-attr="placeholder:search.placeholder" autocomplete="off" spellcheck="false" />
+      <ul id="search-results"></ul>
+    </div>
+    <div id="wait-chip" class="panel hidden" role="status">
+      <span class="wait-main"><span class="wait-egg">🥚</span><span><b id="wait-name"></b><small id="wait-text"></small></span></span>
+      <button id="wait-other" class="btn mini" data-i18n="wait.other">Anderer Name</button>
+      <button id="wait-cancel" class="btn mini" aria-label="Warten beenden" data-i18n-attr="aria-label:wait.cancel">✕</button>
+    </div>
+    <button id="cotd" class="panel hidden" title="Zur Krabbe des Tages" data-i18n-attr="title:cotd.go">
+      <span class="cotd-star">★</span>
+      <span class="cotd-text"><small data-i18n="cotd">Krabbe des Tages</small><b id="cotd-name"></b></span>
+    </button>
+  </div>
+
+  <!-- Seltenheiten -->
+  <aside id="legend" class="panel collapsed">
+    <button id="legend-toggle" class="legend-head" aria-expanded="false">
+      <span data-i18n="legend.title">Seltenheiten</span><span class="chev">▾</span>
+    </button>
+    <ul id="legend-list"></ul>
+    <p class="legend-note" data-i18n="legend.note">Der Hut wird beim ersten Stern ausgewürfelt und bleibt für immer.</p>
+  </aside>
+
+  <!-- Neuste Krabben -->
+  <aside id="newest" class="panel collapsed">
+    <button id="newest-toggle" class="legend-head" aria-expanded="false">
+      <span data-i18n="newest.title">Neu im Meer</span><span class="chev">▾</span>
+    </button>
+    <ul id="newest-list"></ul>
+  </aside>
+
+  <!-- Krabben-Karte -->
+  <div id="card" class="panel hidden">
+    <button class="card-close" aria-label="Schließen" data-i18n-attr="aria-label:close">✕</button>
+    <div class="card-top">
+      <img id="card-avatar" alt="" />
+      <div>
+        <a id="card-login" target="_blank" rel="noopener"></a>
+        <div id="card-number"></div>
+      </div>
+    </div>
+    <div id="card-rarity" class="rarity-badge"></div>
+    <div id="card-cotd" class="hidden" data-i18n="cotd.star">★ Krabbe des Tages</div>
+    <dl>
+      <dt data-i18n="card.size">Größe</dt><dd id="card-grow"></dd>
+      <dt data-i18n="card.hat">Hut</dt><dd id="card-hat"></dd>
+      <dt data-i18n="card.variant">Sorte</dt><dd id="card-variant"></dd>
+      <dt data-i18n="card.since">Im Meer seit</dt><dd id="card-since"></dd>
+    </dl>
+    <div class="card-buttons">
+      <button id="card-follow" class="btn" data-i18n="card.follow">🎥 Folgen</button>
+      <button id="card-wave" class="btn" data-i18n="card.wave">👋 Winken</button>
+      <button id="card-share" class="btn btn-share" data-i18n="card.share">📤 Teilen</button>
+    </div>
+    <button id="card-mine" class="btn card-mine" data-i18n="card.mine">💗 Das bin ich</button>
+    <div id="card-example">
+      <p data-i18n-html="card.exampleText">Das ist eine <b>Beispiel-Krabbe</b>. Sie hält den Platz warm, bis mehr Leute da sind.</p>
+      <button class="btn btn-star" onclick="document.getElementById('star-btn').click()" data-i18n="card.exampleBtn">★ Hol dir deine eigene</button>
+    </div>
+  </div>
+
+  <!-- Stern-Ablauf -->
+  <div id="join" class="hidden">
+    <div class="join-backdrop"></div>
+    <div class="join-box panel" role="dialog" aria-modal="true" aria-labelledby="join-title">
+      <button class="join-close" aria-label="Schließen" data-i18n-attr="aria-label:close">✕</button>
+      <h2 id="join-title" data-i18n="join.title">Jeder Stern wird zur Krabbe</h2>
+      <ol class="join-steps">
+        <li><b data-i18n="join.star">Stern geben</b><span data-i18n="join.starText">Gib dem Projekt auf GitHub einen Stern.</span>
+          <a id="join-star" class="btn btn-star" href="#" target="_blank" rel="noopener" data-i18n="join.starBtn">★ Zu GitHub</a></li>
+        <li><b data-i18n="join.name">Wie heißt du auf GitHub?</b>
+          <form id="join-form" autocomplete="off">
+            <input id="join-name" type="text" placeholder="@deinname" spellcheck="false" autocapitalize="off" maxlength="40" aria-label="GitHub-Name" data-i18n-attr="placeholder:join.placeholder,aria-label:join.nameLabel" />
+            <button class="btn" type="submit" data-i18n="join.go">Los!</button>
+          </form>
+          <span id="join-msg" class="join-msg" role="alert"></span></li>
+        <li><b data-i18n="join.hatch">Deine Krabbe schlüpft</b><span data-i18n="join.hatchText">Das dauert 1 bis 3 Minuten – die Seite schaut von selbst nach.</span></li>
+      </ol>
+      <p class="join-note" data-i18n="join.note">Kein Stern nötig, um hier zu stöbern: Das Meer ist ein Bild aller Stargazer.</p>
+    </div>
+  </div>
+
+  <!-- Enthüllung der eigenen Krabbe -->
+  <div id="reveal" class="hidden" aria-live="polite">
+    <p class="reveal-top" id="reveal-top">Du bist eine</p>
+    <p class="reveal-tier"><span id="reveal-tier"></span><span id="reveal-tail"> KRABBE!</span></p>
+    <p class="reveal-hat" id="reveal-hat"></p>
+  </div>
+
+  <!-- Erste-Schritte-Hinweise -->
+  <div id="coach" class="hidden" role="status"></div>
+
+  <div id="demo-banner" class="hidden" data-i18n="demo.banner">
+    Demo-Modus: noch keine Sterne – hier schwimmen Beispielkrabben.
+  </div>
+
+  <div id="hint" data-i18n="hint">Ziehen = drehen · Scrollen = zoomen · Krabbe anklicken</div>
+
+  <script>
+    // Statt endlos "Tauche ab..." eine verständliche Meldung zeigen
+    // Ladeanzeige: 0–45 % Dateien laden, danach meldet main.js die einzelnen Schritte
+    (function () {
+      var shown = 0, target = 0, l = document.getElementById('loader');
+      var fill = l.querySelector('.load-fill'), pct = l.querySelector('.load-pct'), step = l.querySelector('.load-step'), bar = l.querySelector('.load-bar');
+      function draw() {
+        shown = target; // Zahl immer aktuell, der Balken gleitet per CSS
+        // Tauchgang-Mindestdauer: Anzeige läuft gleichmäßig über die ganze Zeit
+        if (window.__introMin && !window.__introSkipped) shown = Math.min(target, (performance.now() - window.__introT0) / window.__introMin * 100);
+        fill.style.width = shown + '%';
+        pct.textContent = Math.floor(shown) + '%';
+        bar.setAttribute('aria-valuenow', Math.floor(shown));
+        if ((shown < 100 || target < 100) && !window.__seaFailed) setTimeout(draw, 50);
+      }
+      window.__load = {
+        set: function (p, label) { if (p < target) return; target = Math.min(100, p); if (label) step.textContent = /!$/.test(label) ? label : label + '…'; draw(); },
+        get value() { return Math.floor(shown); },
+      };
+      // Module zählen, sobald sie heruntergeladen sind (three.js + Addons + eigene Dateien ≈ 22)
+      var seen = {};
+      function count(list) {
+        list.getEntries().forEach(function (e) {
+          if (/three|\/js\//.test(e.name) && /\.js(\?|$)/.test(e.name)) seen[e.name] = 1;
+        });
+        var n = Object.keys(seen).length;
+        window.__load.set(Math.min(45, 3 + n * 2), n < 12 ? I18N.t('load.three') : I18N.t('load.sea'));
+      }
+      try { new PerformanceObserver(count).observe({ type: 'resource', buffered: true }); } catch (e) { window.__load.set(30); }
+      window.__load.set(3);
+      draw();
+    })();
+
+    (function () {
+      var shownError = false;
+      function fail(html, soft) {
+        var l = document.getElementById('loader');
+        if (!l || l.classList.contains('fade') || window.__seaFailed) return;
+        if (soft && shownError) return; // eine echte Fehlermeldung nicht überschreiben
+        if (!soft) shownError = true;
+        var p = l.querySelector('p');
+        p.innerHTML = html;
+        l.querySelectorAll('.load-bar, .load-info').forEach(function (e) { e.style.display = 'none'; });
+        p.style.cssText = 'max-width:520px;text-align:center;line-height:1.9;font-size:11px';
+      }
+      if (location.protocol === 'file:') {
+        fail(I18N.t('err.file'));
+        return;
+      }
+      window.addEventListener('error', function (e) {
+        fail(I18N.t('err.dive') + '<br><code style="color:#ff9b9b">' + (e.message || e) + '</code>');
+      });
+      window.addEventListener('unhandledrejection', function (e) {
+        fail(I18N.t('err.dive') + '<br><code style="color:#ff9b9b">' + ((e.reason && e.reason.message) || e.reason) + '</code>');
+      });
+      setTimeout(function () {
+        fail(I18N.t('err.slow'), true);
+      }, 25000);
+    })();
+  </script>
+  <script>I18N.apply();</script>
+  <script src="config.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,593 @@
+{
+ "_info": "Feste Beispiele: Python (scripts/sync_stargazers.py) und JavaScript (js/variants.js) m\u00fcssen genau diese Werte liefern.",
+ "vectors": {
+  "common": [
+   {
+    "v": 1,
+    "hat": "none",
+    "shell": 0,
+    "pattern": 1,
+    "hue": 0,
+    "edition": 1
+   },
+   {
+    "v": 2,
+    "hat": "none",
+    "shell": 0,
+    "pattern": 4,
+    "hue": 7,
+    "edition": 1
+   },
+   {
+    "v": 3,
+    "hat": "none",
+    "shell": 1,
+    "pattern": 4,
+    "hue": 4,
+    "edition": 1
+   },
+   {
+    "v": 4,
+    "hat": "none",
+    "shell": 2,
+    "pattern": 4,
+    "hue": 1,
+    "edition": 1
+   },
+   {
+    "v": 5,
+    "hat": "none",
+    "shell": 3,
+    "pattern": 3,
+    "hue": 8,
+    "edition": 1
+   },
+   {
+    "v": 100,
+    "hat": "beanie",
+    "shell": 1,
+    "pattern": 1,
+    "hue": 3,
+    "edition": 1
+   },
+   {
+    "v": 101,
+    "hat": "beanie",
+    "shell": 2,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 1
+   },
+   {
+    "v": 840,
+    "hat": "cap",
+    "shell": 5,
+    "pattern": 1,
+    "hue": 3,
+    "edition": 1
+   },
+   {
+    "v": 841,
+    "hat": "none",
+    "shell": 0,
+    "pattern": 1,
+    "hue": 0,
+    "edition": 2
+   },
+   {
+    "v": 1680,
+    "hat": "cap",
+    "shell": 5,
+    "pattern": 1,
+    "hue": 3,
+    "edition": 2
+   },
+   {
+    "v": 1681,
+    "hat": "none",
+    "shell": 0,
+    "pattern": 1,
+    "hue": 0,
+    "edition": 3
+   },
+   {
+    "v": 2527,
+    "hat": "none",
+    "shell": 5,
+    "pattern": 3,
+    "hue": 2,
+    "edition": 4
+   }
+  ],
+  "uncommon": [
+   {
+    "v": 1,
+    "hat": "sailor",
+    "shell": 0,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 1
+   },
+   {
+    "v": 2,
+    "hat": "sailor",
+    "shell": 0,
+    "pattern": 3,
+    "hue": 7,
+    "edition": 1
+   },
+   {
+    "v": 3,
+    "hat": "sailor",
+    "shell": 1,
+    "pattern": 2,
+    "hue": 4,
+    "edition": 1
+   },
+   {
+    "v": 4,
+    "hat": "sailor",
+    "shell": 2,
+    "pattern": 1,
+    "hue": 1,
+    "edition": 1
+   },
+   {
+    "v": 5,
+    "hat": "sailor",
+    "shell": 2,
+    "pattern": 4,
+    "hue": 8,
+    "edition": 1
+   },
+   {
+    "v": 100,
+    "hat": "sailor",
+    "shell": 1,
+    "pattern": 1,
+    "hue": 3,
+    "edition": 1
+   },
+   {
+    "v": 101,
+    "hat": "sailor",
+    "shell": 2,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 1
+   },
+   {
+    "v": 900,
+    "hat": "flower",
+    "shell": 5,
+    "pattern": 1,
+    "hue": 3,
+    "edition": 1
+   },
+   {
+    "v": 901,
+    "hat": "sailor",
+    "shell": 0,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 2
+   },
+   {
+    "v": 1800,
+    "hat": "flower",
+    "shell": 5,
+    "pattern": 1,
+    "hue": 3,
+    "edition": 2
+   },
+   {
+    "v": 1801,
+    "hat": "sailor",
+    "shell": 0,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 3
+   },
+   {
+    "v": 2707,
+    "hat": "sailor",
+    "shell": 4,
+    "pattern": 2,
+    "hue": 2,
+    "edition": 4
+   }
+  ],
+  "rare": [
+   {
+    "v": 1,
+    "hat": "tophat",
+    "shell": 0,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 1
+   },
+   {
+    "v": 2,
+    "hat": "tophat",
+    "shell": 0,
+    "pattern": 3,
+    "hue": 7,
+    "edition": 1
+   },
+   {
+    "v": 3,
+    "hat": "tophat",
+    "shell": 1,
+    "pattern": 2,
+    "hue": 4,
+    "edition": 1
+   },
+   {
+    "v": 4,
+    "hat": "tophat",
+    "shell": 2,
+    "pattern": 1,
+    "hue": 1,
+    "edition": 1
+   },
+   {
+    "v": 5,
+    "hat": "tophat",
+    "shell": 2,
+    "pattern": 4,
+    "hue": 8,
+    "edition": 1
+   },
+   {
+    "v": 100,
+    "hat": "tophat",
+    "shell": 1,
+    "pattern": 1,
+    "hue": 3,
+    "edition": 1
+   },
+   {
+    "v": 101,
+    "hat": "tophat",
+    "shell": 2,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 1
+   },
+   {
+    "v": 900,
+    "hat": "viking",
+    "shell": 5,
+    "pattern": 1,
+    "hue": 3,
+    "edition": 1
+   },
+   {
+    "v": 901,
+    "hat": "tophat",
+    "shell": 0,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 2
+   },
+   {
+    "v": 1800,
+    "hat": "viking",
+    "shell": 5,
+    "pattern": 1,
+    "hue": 3,
+    "edition": 2
+   },
+   {
+    "v": 1801,
+    "hat": "tophat",
+    "shell": 0,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 3
+   },
+   {
+    "v": 2707,
+    "hat": "tophat",
+    "shell": 4,
+    "pattern": 2,
+    "hue": 2,
+    "edition": 4
+   }
+  ],
+  "epic": [
+   {
+    "v": 1,
+    "hat": "wizard",
+    "shell": 0,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 1
+   },
+   {
+    "v": 2,
+    "hat": "wizard",
+    "shell": 0,
+    "pattern": 3,
+    "hue": 7,
+    "edition": 1
+   },
+   {
+    "v": 3,
+    "hat": "wizard",
+    "shell": 1,
+    "pattern": 2,
+    "hue": 4,
+    "edition": 1
+   },
+   {
+    "v": 4,
+    "hat": "wizard",
+    "shell": 2,
+    "pattern": 1,
+    "hue": 1,
+    "edition": 1
+   },
+   {
+    "v": 5,
+    "hat": "wizard",
+    "shell": 2,
+    "pattern": 4,
+    "hue": 8,
+    "edition": 1
+   },
+   {
+    "v": 100,
+    "hat": "wizard",
+    "shell": 1,
+    "pattern": 1,
+    "hue": 3,
+    "edition": 1
+   },
+   {
+    "v": 101,
+    "hat": "wizard",
+    "shell": 2,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 1
+   },
+   {
+    "v": 600,
+    "hat": "shark",
+    "shell": 5,
+    "pattern": 1,
+    "hue": 3,
+    "edition": 1
+   },
+   {
+    "v": 601,
+    "hat": "wizard",
+    "shell": 0,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 2
+   },
+   {
+    "v": 1200,
+    "hat": "shark",
+    "shell": 5,
+    "pattern": 1,
+    "hue": 3,
+    "edition": 2
+   },
+   {
+    "v": 1201,
+    "hat": "wizard",
+    "shell": 0,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 3
+   },
+   {
+    "v": 1807,
+    "hat": "wizard",
+    "shell": 4,
+    "pattern": 2,
+    "hue": 2,
+    "edition": 4
+   }
+  ],
+  "legendary": [
+   {
+    "v": 1,
+    "hat": "crown",
+    "shell": 0,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 1
+   },
+   {
+    "v": 2,
+    "hat": "crown",
+    "shell": 0,
+    "pattern": 3,
+    "hue": 7,
+    "edition": 1
+   },
+   {
+    "v": 3,
+    "hat": "crown",
+    "shell": 1,
+    "pattern": 2,
+    "hue": 4,
+    "edition": 1
+   },
+   {
+    "v": 4,
+    "hat": "crown",
+    "shell": 2,
+    "pattern": 1,
+    "hue": 1,
+    "edition": 1
+   },
+   {
+    "v": 5,
+    "hat": "crown",
+    "shell": 2,
+    "pattern": 4,
+    "hue": 8,
+    "edition": 1
+   },
+   {
+    "v": 100,
+    "hat": "crown",
+    "shell": 1,
+    "pattern": 1,
+    "hue": 3,
+    "edition": 1
+   },
+   {
+    "v": 101,
+    "hat": "crown",
+    "shell": 2,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 1
+   },
+   {
+    "v": 600,
+    "hat": "halo",
+    "shell": 5,
+    "pattern": 1,
+    "hue": 3,
+    "edition": 1
+   },
+   {
+    "v": 601,
+    "hat": "crown",
+    "shell": 0,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 2
+   },
+   {
+    "v": 1200,
+    "hat": "halo",
+    "shell": 5,
+    "pattern": 1,
+    "hue": 3,
+    "edition": 2
+   },
+   {
+    "v": 1201,
+    "hat": "crown",
+    "shell": 0,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 3
+   },
+   {
+    "v": 1807,
+    "hat": "crown",
+    "shell": 4,
+    "pattern": 2,
+    "hue": 2,
+    "edition": 4
+   }
+  ],
+  "mythic": [
+   {
+    "v": 1,
+    "hat": "starcrown",
+    "shell": 0,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 1
+   },
+   {
+    "v": 2,
+    "hat": "starcrown",
+    "shell": 0,
+    "pattern": 3,
+    "hue": 7,
+    "edition": 1
+   },
+   {
+    "v": 3,
+    "hat": "starcrown",
+    "shell": 1,
+    "pattern": 2,
+    "hue": 4,
+    "edition": 1
+   },
+   {
+    "v": 4,
+    "hat": "starcrown",
+    "shell": 2,
+    "pattern": 1,
+    "hue": 1,
+    "edition": 1
+   },
+   {
+    "v": 5,
+    "hat": "starcrown",
+    "shell": 2,
+    "pattern": 4,
+    "hue": 8,
+    "edition": 1
+   },
+   {
+    "v": 100,
+    "hat": "starcrown",
+    "shell": 1,
+    "pattern": 1,
+    "hue": 3,
+    "edition": 1
+   },
+   {
+    "v": 101,
+    "hat": "starcrown",
+    "shell": 2,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 1
+   },
+   {
+    "v": 300,
+    "hat": "starcrown",
+    "shell": 5,
+    "pattern": 1,
+    "hue": 3,
+    "edition": 1
+   },
+   {
+    "v": 301,
+    "hat": "starcrown",
+    "shell": 0,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 2
+   },
+   {
+    "v": 600,
+    "hat": "starcrown",
+    "shell": 5,
+    "pattern": 1,
+    "hue": 3,
+    "edition": 2
+   },
+   {
+    "v": 601,
+    "hat": "starcrown",
+    "shell": 0,
+    "pattern": 0,
+    "hue": 0,
+    "edition": 3
+   },
+   {
+    "v": 907,
+    "hat": "starcrown",
+    "shell": 4,
+    "pattern": 2,
+    "hue": 2,
+    "edition": 4
+   }
+  ]
+ }
+}
