@@ -79,7 +79,7 @@ No, the sea is open to everyone. It is a picture of everyone who starred the pro
 ## Technology
 
 ```
-⭐ Star ─► GitHub Action ─► scripts/sync_stargazers.py ─► crabs.json (commit) ─► Cloudflare Pages
+⭐ Star ─► GitHub Action ─► scripts/sync_stargazers.py ─► crabs.json (commit) ─► Cloudflare
 ```
 
 - A purely static site, **no build step**: HTML, CSS, JavaScript modules and [three.js](https://threejs.org) 0.160.0 (in `vendor/three/`).
@@ -110,7 +110,7 @@ They also run automatically on every push (`.github/workflows/tests.yml`).
 
 ### Setup (your own sea)
 
-The repo lives on GitHub, the site runs on Cloudflare Pages.
+The repo lives on GitHub, the site runs on Cloudflare (Workers with static files; Cloudflare Pages works the same way).
 
 **GitHub**
 1. Create a repo and push this folder (main branch `main`).
@@ -119,15 +119,15 @@ The repo lives on GitHub, the site runs on Cloudflare Pages.
    `python3 -c "import secrets; print(secrets.token_hex(32))"`. Keep the key safe and never change it: without it, sealed crabs can no longer be unwrapped. Everything also works without a key, but then the hats are readable in `crabs.json` right away.
 4. Enter the owner and repo name in `config.js` (that is where the star button leads).
 
-**Cloudflare Pages**
-5. **Workers & Pages → Create → Pages → Connect to Git** and choose the repo.
-6. Framework: *None*, build command: leave empty, output directory: `/`, production branch: `main`.
-7. Connect your own address under **Custom domains**. If you copy the project for your own sea, enter your address at the top of this README and in `og:url`, `og:image` and `twitter:image` in `index.html`, so shared links show a preview image.
+**Cloudflare**
+5. **Workers & Pages → Create → Import a repository** and choose the repo.
+6. Leave the build command empty, deploy command `npx wrangler deploy` (default). The settings are in `wrangler.jsonc`; `.assetsignore` lists the files that are not put on the site.
+7. Connect your own address under **Settings → Domains & Routes** (with Pages: **Custom domains**). If you copy the project for your own sea, enter your address at the top of this README and in `og:url`, `og:image` and `twitter:image` in `index.html`, so shared links show a preview image.
 
 **Let’s go**
 8. Start **Actions → Stargazer Sea → Run workflow** once by hand.
 
-Cloudflare rebuilds after every commit, so on every new star and whenever a hat is unwrapped. The free plan includes 500 builds per month, which is enough for about 250 new stars a month.
+Cloudflare rebuilds after every commit, so on every new star and whenever a hat is unwrapped. A run takes less than a minute; the free plan is plenty for that.
 
 Note: GitHub disables scheduled workflows in public repos after 60 days without activity. Turn them back on in the “Actions” tab. Every new star still starts the Action.
 

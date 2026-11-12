@@ -1,0 +1,15 @@
+# Diese Dateien gehören nicht auf die Webseite
+.git
+.github
+.gitignore
+.nojekyll
+node_modules
+.wrangler
+scripts
+tests
+__pycache__
+*.pyc
+requirements-dev.txt
+wrangler.jsonc
+README.md
+README.en.md

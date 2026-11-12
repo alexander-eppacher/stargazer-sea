@@ -79,7 +79,7 @@ Nein, das Meer ist für alle offen. Es ist ein Bild aller, die dem Projekt einen
 ## Technik
 
 ```
-⭐ Stern ─► GitHub Action ─► scripts/sync_stargazers.py ─► crabs.json (Commit) ─► Cloudflare Pages
+⭐ Stern ─► GitHub Action ─► scripts/sync_stargazers.py ─► crabs.json (Commit) ─► Cloudflare
 ```
 
 - Reine statische Seite, **kein Build-Schritt**: HTML, CSS, JavaScript-Module und [three.js](https://threejs.org) 0.160.0 (liegt in `vendor/three/`).
@@ -109,7 +109,7 @@ Laufen auch automatisch bei jedem Push (`.github/workflows/tests.yml`).
 
 ### Einrichtung (eigenes Meer)
 
-Das Repo liegt auf GitHub, die Seite läuft auf Cloudflare Pages.
+Das Repo liegt auf GitHub, die Seite läuft auf Cloudflare (Workers mit statischen Dateien; Cloudflare Pages geht genauso).
 
 **GitHub**
 1. Repo anlegen und diesen Ordner pushen (Hauptzweig `main`).
@@ -118,15 +118,15 @@ Das Repo liegt auf GitHub, die Seite läuft auf Cloudflare Pages.
    `python3 -c "import secrets; print(secrets.token_hex(32))"`. Den Schlüssel gut aufheben und nie ändern: Ohne ihn lassen sich versiegelte Krabben nicht mehr auspacken. Ohne Schlüssel funktioniert alles auch, dann sind die Hüte aber sofort in `crabs.json` lesbar.
 4. In `config.js` Besitzer und Repo-Namen eintragen (dorthin führt der Stern-Knopf).
 
-**Cloudflare Pages**
-5. **Workers & Pages → Create → Pages → Connect to Git** und das Repo auswählen.
-6. Framework: *None*, Build-Befehl: leer lassen, Ausgabeverzeichnis: `/`, Produktionszweig: `main`.
-7. Unter **Custom domains** die eigene Adresse verbinden (hier `sea.eppacher.net`). Wer das Projekt für ein eigenes Meer kopiert, trägt seine Adresse oben in dieser README und bei `og:url`, `og:image` und `twitter:image` in `index.html` ein, damit geteilte Links ein Vorschaubild zeigen.
+**Cloudflare**
+5. **Workers & Pages → Create → Import a repository** und das Repo auswählen.
+6. Build-Befehl leer lassen, Deploy-Befehl `npx wrangler deploy` (Standard). Die Einstellungen stehen in `wrangler.jsonc`, welche Dateien nicht auf die Seite kommen, steht in `.assetsignore`.
+7. Unter **Settings → Domains & Routes** (bei Pages: **Custom domains**) die eigene Adresse verbinden (hier `sea.eppacher.net`). Wer das Projekt für ein eigenes Meer kopiert, trägt seine Adresse oben in dieser README und bei `og:url`, `og:image` und `twitter:image` in `index.html` ein, damit geteilte Links ein Vorschaubild zeigen.
 
 **Los geht's**
 8. **Actions → Stargazer Sea → Run workflow** einmal von Hand starten.
 
-Cloudflare baut nach jedem Commit neu, also bei jedem neuen Stern und wenn ein Hut ausgepackt wird. Im kostenlosen Tarif sind es 500 Builds pro Monat, das reicht für etwa 250 neue Sterne im Monat.
+Cloudflare baut nach jedem Commit neu, also bei jedem neuen Stern und wenn ein Hut ausgepackt wird. Ein Durchlauf dauert unter einer Minute, der kostenlose Tarif reicht dafür gut.
 
 Hinweis: GitHub schaltet zeitgesteuerte Abläufe in öffentlichen Repos nach 60 Tagen ohne Aktivität ab. Dann im Reiter „Actions“ wieder einschalten. Jeder neue Stern startet die Action trotzdem.
 

@@ -1,0 +1,9 @@
+// Cloudflare: Die Seite wird als statische Dateien ausgeliefert (kein Server-Code).
+{
+  "name": "stargazer-sea",
+  "compatibility_date": "2025-06-01",
+  "assets": {
+    "directory": "./",
+    "not_found_handling": "none"
+  }
+}

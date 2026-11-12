@@ -1,7 +1,7 @@
 name: Stargazer Sea
 
 # Würfelt neue Krabben und schreibt crabs.json. Veröffentlicht wird die Seite von
-# Cloudflare Pages: Es baut nach jedem Commit auf main automatisch neu.
+# Cloudflare: Es baut nach jedem Commit auf main automatisch neu.
 
 on:
   # Jemand gibt einen Stern -> neue Krabbe
