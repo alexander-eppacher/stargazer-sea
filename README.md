@@ -11,7 +11,7 @@
   <img alt="Stars" src="https://img.shields.io/github/stars/alexander-eppacher/stargazer-sea?style=for-the-badge&label=Krabben%20im%20Meer&color=de7856&logo=github">
 </p>
 
-<h3 align="center">👉 <a href="https://sea.eppacher.net/">Zum Meer</a> 👈</h3>
+<h3 align="center">👉 <a href="https://stargazer-sea.eppacher.net/">Zum Meer</a> 👈</h3>
 
 ## So wirst du zur Krabbe
 
@@ -121,7 +121,7 @@ Das Repo liegt auf GitHub, die Seite läuft auf Cloudflare (Workers mit statisch
 **Cloudflare**
 5. **Workers & Pages → Create → Import a repository** und das Repo auswählen.
 6. Build-Befehl leer lassen, Deploy-Befehl `npx wrangler deploy` (Standard). Die Einstellungen stehen in `wrangler.jsonc`, welche Dateien nicht auf die Seite kommen, steht in `.assetsignore`.
-7. Unter **Settings → Domains & Routes** (bei Pages: **Custom domains**) die eigene Adresse verbinden (hier `sea.eppacher.net`). Wer das Projekt für ein eigenes Meer kopiert, trägt seine Adresse oben in dieser README und bei `og:url`, `og:image` und `twitter:image` in `index.html` ein, damit geteilte Links ein Vorschaubild zeigen.
+7. Unter **Settings → Domains & Routes** (bei Pages: **Custom domains**) die eigene Adresse verbinden (hier `stargazer-sea.eppacher.net`). Wer das Projekt für ein eigenes Meer kopiert, trägt seine Adresse oben in dieser README und bei `og:url`, `og:image` und `twitter:image` in `index.html` ein, damit geteilte Links ein Vorschaubild zeigen.
 
 **Los geht's**
 8. **Actions → Stargazer Sea → Run workflow** einmal von Hand starten.

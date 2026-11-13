@@ -91,7 +91,17 @@ sun.shadow.normalBias = 0.03;
 sun.shadow.radius = 4;
 scene.add(sun);
 
-const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: lowEnd ? 0 : 4 });
+// Kantenglättung (MSAA) im HDR-Zwischenbild: AMD-Grafik unter Windows (Direct3D) zeichnet damit
+// nur einen Teil des Bildes, der Rest bleibt schwarz → dort ohne MSAA. Testen: ?msaa=0 bzw. ?msaa=1
+const gpuName = (() => {
+  try {
+    const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info');
+    return String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER) || '');
+  } catch { return ''; }
+})();
+const msaaBroken = /AMD|Radeon|ATI /i.test(gpuName) && /Direct3D|D3D/i.test(gpuName);
+const msaa = params.has('msaa') ? params.get('msaa') !== '0' : !lowEnd && !msaaBroken;
+const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: msaa ? 4 : 0 });
 const composer = new EffectComposer(renderer, rt);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.22, 0.35, 1.0);
@@ -1315,6 +1325,7 @@ function nextCoach() {
   const el = $('coach');
   if (coachStep >= COACH.length) {
     el.classList.add('hidden');
+    $('star-btn').classList.remove('pulse');
     store.set('hinweiseGesehen', '1');
     $('hint').style.opacity = 0.75;
     coachStep = -1;
@@ -1323,6 +1334,10 @@ function nextCoach() {
   const c = COACH[coachStep];
   el.textContent = c.text;
   el.dataset.pos = c.pos;
+  // Stern-Hinweis unter die rechte Spalte (Stern, Suche, Krabbe des Tages), nicht darüber
+  const wide = !matchMedia('(max-width: 760px)').matches;
+  el.style.top = c.pos === 'star' && wide ? `${Math.round($('hud-actions').getBoundingClientRect().bottom + 16)}px` : '';
+  $('star-btn').classList.toggle('pulse', c.pos === 'star');
   el.classList.remove('hidden');
   el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
   coachTimer = setTimeout(nextCoach, 6000);
@@ -1529,7 +1544,7 @@ window.__sea = {
   albumOpen, albumGo, closeAlbum, season: SEASON, get night() { return ctx.night; }, setHour(h) { forcedHour = h; applyEnv(); },
   inRoomZone, makeRoom, tradingCardOpen, closeTradingCard,
   setMine, mineCrab, startWaiting, stopWaiting, reveal, openJoin, get waitFor() { return waitFor; }, get coachStep() { return coachStep; },
-  get fly() { return fly; }, today, birthdayYears, growth, checkGrowth, albumNews,
+  get fly() { return fly; }, msaa, gpuName, today, birthdayYears, growth, checkGrowth, albumNews,
   /** Zeit vorspulen (Stunden) und sofort wachsen lassen – für Tests und zum Ausprobieren. */
   skipTime(hours) { timeShift += hours * 3_600_000; checkGrowth(); },
   skip() {

@@ -11,7 +11,7 @@
   <img alt="Stars" src="https://img.shields.io/github/stars/alexander-eppacher/stargazer-sea?style=for-the-badge&label=Crabs%20in%20the%20sea&color=de7856&logo=github">
 </p>
 
-<h3 align="center">👉 <a href="https://sea.eppacher.net/?lang=en">To the sea</a> 👈</h3>
+<h3 align="center">👉 <a href="https://stargazer-sea.eppacher.net/?lang=en">To the sea</a> 👈</h3>
 
 ## How to become a crab
 
