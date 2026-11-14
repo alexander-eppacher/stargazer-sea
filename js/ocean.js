@@ -10,6 +10,8 @@ import {
   sandTexture, cardboardTexture, frillTexture, backdropTexture, grainTexture,
 } from './paper.js';
 import { t } from './lang.js';
+import { buildTown } from './town.js';
+import { buildPlaces, PLACE_SPOTS } from './places.js';
 
 export const WORLD = {
   crabRadius: 27,
@@ -263,6 +265,12 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
   obstacles.push({ x: 0, z: 0, r: 2.1 });
   updaters.push(chest.update);
 
+  /* ---------- Krabbenstadt am hinteren Inselrand ---------- */
+  const town = buildTown(scene, mulberry32(4711), { heightAt, obstacles, env, camera });
+  updaters.push(town.update);
+  // Plätze für Blubberbad & Spielplatz schon jetzt reservieren (kein Gras/Korallen darin)
+  for (const [x, z, r] of Object.values(PLACE_SPOTS)) obstacles.push({ x, z, r });
+
   /* ---------- Papierfelsen ---------- */
   const rockGeos = [];
   const grainTex = grainTexture(rng);
@@ -286,7 +294,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
     g.translate(x, heightAt(x, z), z);
     rockGeos.push(g);
   }
-  for (let i = 0; i < 22; i++) {
+  for (let i = 0; i < 11; i++) {
     const s = range(rng, 0.4, 1.5);
     const sp = spot(6, 34, s + 0.3);
     if (!sp) continue;
@@ -346,8 +354,9 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
   }
 
   const reefAnemones = [];
+  const plateauCorals = [];
   const reefs = [];
-  for (let i = 0; i < 12; i++) { const sp = spot(8, 33, 2.5); if (sp) reefs.push(sp); }
+  for (let i = 0; i < 6; i++) { const sp = spot(8, 28, 2.5); if (sp) reefs.push(sp); }
   for (const p of PLATEAUS) reefs.push({ x: p.x, z: p.z, plateau: p });
   for (const rc of reefs) {
     const n = 3 + Math.floor(rng() * 4);
@@ -356,6 +365,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
       const x = rc.x + Math.cos(a) * d, z = rc.z + Math.sin(a) * d;
       if (Math.hypot(x, z) < 5) continue;
       if (!rc.plateau && !free(x, z, 0.7)) continue;
+      if (rc.plateau) plateauCorals.push({ x, z });
       const type = pick(rng, ['branch', 'branch', 'branch', 'fan', 'fan', 'tube', 'tube', 'anemone', 'mound', 'mound']);
       const s = range(rng, 0.8, 1.3);
       let r = 0.8 * s;
@@ -421,12 +431,12 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
   /* ---------- Grasbüschel (instanziert) ---------- */
   // Büschel wachsen in Grüppchen (wirkt natürlicher als gleichmäßig verstreut)
   const tuftPatches = [];
-  for (let i = 0; i < 46; i++) { const sp = spot(4, 36, 0.5, 6); if (sp) tuftPatches.push({ ...sp, r: range(rng, 1.2, 3.2) }); }
+  for (let i = 0; i < 34; i++) { const sp = spot(4, 36, 0.5, 6); if (sp) tuftPatches.push({ ...sp, r: range(rng, 1.2, 3.2) }); }
   for (const a of A.tuft) {
     const { list, height } = crossedGeometry(a.stk, 0.9, 2, 2);
     const g = mergeAll(list, ['position', 'normal', 'uv']);
     setSway(g, 0, height, 1.5);
-    const count = 150;
+    const count = 115;
     const mesh = new THREE.InstancedMesh(g, cutMat(a.t, 0.1, 1.5), count);
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
     let n = 0;
@@ -451,8 +461,8 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
   /* ---------- Seesterne & Muscheln (Sticker auf dem Boden) ---------- */
   {
     const decos = [
-      ...[0xff7b39, 0xff4d6d, 0xb07ef0, 0x5b8cff, 0xffc93c].map((c) => ({ stk: drawStarfish(rng, c), size: [0.5, 0.9], n: 9 })),
-      ...[0xffe5d9, 0xf6bd60, 0xf7a1c4].map((c) => ({ stk: drawShell(rng, c), size: [0.35, 0.6], n: 8 })),
+      ...[0xff7b39, 0xff4d6d, 0xb07ef0, 0x5b8cff, 0xffc93c].map((c) => ({ stk: drawStarfish(rng, c), size: [0.5, 0.9], n: 3 })),
+      ...[0xffe5d9, 0xf6bd60, 0xf7a1c4].map((c) => ({ stk: drawShell(rng, c), size: [0.35, 0.6], n: 3 })),
     ];
     for (const d of decos) {
       const t = toTexture(d.stk.canvas);
@@ -478,8 +488,8 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
     // Seeigel (kleine gekreuzte Pappaufsteller)
     const urchins = [0x7b3fa0, 0x2f3a7a, 0xb23a6e].map((c) => art(drawUrchin(rng, c)));
     const ug = new Map();
-    for (let i = 0; i < 11; i++) {
-      const sp = spot(7, 34, 0.6, 12);
+    for (let i = 0; i < 4; i++) {
+      const sp = spot(7, 28, 0.6, 12);
       if (!sp) continue;
       const a = pick(rng, urchins);
       const { list } = crossedGeometry(a.stk, range(rng, 0.55, 0.85), 2);
@@ -507,7 +517,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
       scene.add(m);
     };
     const peb = drawPebbles(rng);
-    flat(peb, 1.6, 12, cutMat(toTexture(peb.canvas), 0, 1, 0.2), 0.02);
+    flat(peb, 1.6, 4, cutMat(toTexture(peb.canvas), 0, 1, 0.2), 0.02);
     const rip = drawRipples(rng, 0xf4d9a0);
     flat(rip, 4.2, 16, new THREE.MeshStandardMaterial({ map: toTexture(rip.canvas), transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2 }), 0.012);
 
@@ -544,6 +554,11 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
 
   flushCuts();
 
+  /* ---------- Besondere Orte: Sternwarte, Wrack-Café, Blubberbad, Spielplatz ---------- */
+  const places = buildPlaces(scene, { heightAt, obstacles, plateaus: PLATEAUS, plateauCorals, env, ...town });
+  updaters.push(places.update);
+  town.vents.push(...places.vents);
+
   /* ---------- Tiere ---------- */
   updaters.push(buildFish(scene, rng, camera, reefAnemones));
   const glowMats = [];
@@ -556,6 +571,8 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
   const bubbles = new Bubbles(scene, renderer, camera, 1200);
   updaters.push((dt) => {
     for (const v of vents) if (Math.random() < dt * 7) bubbles.spawn(v.x, v.y, v.z, 1, 0.25, 0.1, 0.26);
+    for (const v of town.vents) if (Math.random() < dt * 3) bubbles.spawn(v.x, v.y, v.z, 1, 0.2, 0.08, 0.2);
+    for (const v of places.foam) if (Math.random() < dt * 9) bubbles.spawn(v.x, v.y, v.z, 1, 0.5, 0.12, 0.3); // Blubberbad
     for (const a of reefAnemones) if (Math.random() < dt * 0.25) bubbles.spawn(a.x, a.y, a.z, 3, 0.3, 0.06, 0.14);
     if (Math.random() < dt) {
       const a = Math.random() * Math.PI * 2, d = Math.random() * 36;
