@@ -260,10 +260,19 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
   // Plätze für Blubberbad & Spielplatz schon jetzt reservieren (kein Gras/Korallen darin)
   for (const [x, z, r] of Object.values(PLACE_SPOTS)) obstacles.push({ x, z, r });
 
+  /* ---------- Krabbenwiese ausdünnen (Radius ≤ 29, freier Kreis um die Truhe) ---------- */
+  // Weggelassenes wird trotzdem „gewürfelt“, damit alles danach (z. B. die Korallen auf den
+  // Plateaus und damit der Platz der Sternwarte) genau gleich bleibt.
+  const MEADOW = WORLD.crabRadius + 2, CHEST_FREE = 5;
+  const inMeadow = (x, z) => Math.hypot(x, z) <= MEADOW;
+  const every = (k) => { let n = 0; return () => n++ % k === 0; };
+  const ghosts = [];   // Platzhalter-Hindernisse bis nach den Korallen (gleiche Würfelfolge)
+  let dry = false;     // true: nur würfeln, nichts bauen
+
   /* ---------- Papierfelsen ---------- */
   const rockGeos = [];
   const grainTex = grainTexture(rng);
-  function rock(x, z, size, sy = 0.75) {
+  function rock(x, z, size, sy = 0.75, keep = true) {
     const g = new THREE.IcosahedronGeometry(1, 1);
     const p = g.attributes.position, seed = rng() * 50;
     for (let i = 0; i < p.count; i++) {
@@ -281,14 +290,17 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     g.rotateY(rng() * Math.PI * 2);
     g.translate(x, heightAt(x, z), z);
-    rockGeos.push(g);
+    if (keep) rockGeos.push(g);
   }
+  const keepRock = every(3);
   for (let i = 0; i < 11; i++) {
     const s = range(rng, 0.4, 1.5);
     const sp = spot(6, 34, s + 0.3);
     if (!sp) continue;
-    rock(sp.x, sp.z, s);
-    if (s > 0.6) obstacles.push({ x: sp.x, z: sp.z, r: s * 0.9 });
+    const keep = !inMeadow(sp.x, sp.z) || keepRock();     // in der Wiese nur jeder dritte Stein
+    rock(sp.x, sp.z, s, 0.75, keep);
+    if (s > 0.6) (keep ? obstacles : ghosts).push({ x: sp.x, z: sp.z, r: s * 0.9 });
+    if (!keep && s > 0.6) obstacles.push(ghosts[ghosts.length - 1]);
   }
   for (let i = 0; i < 26; i++) {
     const a = rng() * Math.PI * 2, d = range(rng, 44, 62);
@@ -336,6 +348,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
       g.translate(x, y, z);
       setSway(g, y, height, 1.5);
     }
+    if (dry) return height;
     const key = `${a.t.uuid}|${sway}|${speed}`;
     if (!groups.has(key)) groups.set(key, { t: a.t, geos: [], sway, speed });
     groups.get(key).geos.push(...list);
@@ -347,7 +360,9 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
   const reefs = [];
   for (let i = 0; i < 6; i++) { const sp = spot(8, 28, 2.5); if (sp) reefs.push(sp); }
   for (const p of PLATEAUS) reefs.push({ x: p.x, z: p.z, plateau: p });
+  const keepReef = every(2);
   for (const rc of reefs) {
+    dry = !rc.plateau && !keepReef();
     const n = 3 + Math.floor(rng() * 4);
     for (let k = 0; k < n; k++) {
       const a = rng() * Math.PI * 2, d = rc.plateau ? range(rng, 0, rc.plateau.r * 0.7) : range(rng, 0, 4);
@@ -363,12 +378,15 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
       else if (type === 'tube') { addCut('tube', x, z, 1.6 * s); r = 0.7 * s; }
       else if (type === 'anemone') {
         const h = addCut('anemone', x, z, 1.7 * s, { planes: 3, sway: 0.12, speed: 1.8, segY: 3 });
-        reefAnemones.push({ x, y: heightAt(x, z) + h * 0.8, z, s });
+        if (!dry) reefAnemones.push({ x, y: heightAt(x, z) + h * 0.8, z, s });
         r = 0.7 * s;
       } else { mound(x, z, s); r = 0.9 * s; }
-      if (!rc.plateau) obstacles.push({ x, z, r });
+      if (!rc.plateau) { const o = { x, z, r }; obstacles.push(o); if (dry) ghosts.push(o); }
     }
   }
+  dry = false;
+  // Platzhalter wieder entfernen: dort ist jetzt wirklich frei (Krabben dürfen hin)
+  for (const g of ghosts) obstacles.splice(obstacles.indexOf(g), 1);
   // äußere Riffe auf dem tiefen Boden
   for (let i = 0; i < 40; i++) {
     const a = rng() * Math.PI * 2, d = range(rng, 43, 62);
@@ -414,7 +432,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
     const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: moundTex[col], roughness: 1, flatShading: true, emissiveMap: moundTex[col], emissive: 0x333333 }));
     m.position.set(x, heightAt(x, z) - 0.05, z);
     m.castShadow = m.receiveShadow = true;
-    scene.add(m);
+    if (!dry) scene.add(m);
   }
 
   /* ---------- Grasbüschel (instanziert) ---------- */
@@ -427,9 +445,11 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
     setSway(g, 0, height, 1.5);
     const count = 115;
     const mesh = new THREE.InstancedMesh(g, cutMat(a.t, 0.1, 1.5), count);
+    const dropTuft = (() => { let n = 0; return () => n++ % 3 === 2; })();
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
     let n = 0;
-    for (let i = 0; i < count * 4 && n < count; i++) {
+    let skipped = 0;
+    for (let i = 0; i < count * 4 && n + skipped < count; i++) {
       let sp;
       if (rng() < 0.8 && tuftPatches.length) {
         const pc = pick(rng, tuftPatches), ang = rng() * Math.PI * 2, d = Math.sqrt(rng()) * pc.r;
@@ -437,6 +457,9 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
         if (!free(sp.x, sp.z, 0.25)) continue;
       } else sp = spot(4, 37, 0.3, 3);
       if (!sp || heightAt(sp.x, sp.z) < 0) continue;
+      const rr = Math.hypot(sp.x, sp.z);
+      if (rr < CHEST_FREE) continue;
+      if (rr <= MEADOW && dropTuft()) { skipped++; continue; } // Wiese: ein Drittel weniger (nicht woanders hin)
       pos.set(sp.x, heightAt(sp.x, sp.z) - 0.02, sp.z);
       q.setFromAxisAngle(UPV, rng() * Math.PI);
       const s = range(rng, 0.6, 1.4);
@@ -453,12 +476,14 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
       ...[0xff7b39, 0xff4d6d, 0xb07ef0, 0x5b8cff, 0xffc93c].map((c) => ({ stk: drawStarfish(rng, c), size: [0.5, 0.9], n: 3 })),
       ...[0xffe5d9, 0xf6bd60, 0xf7a1c4].map((c) => ({ stk: drawShell(rng, c), size: [0.35, 0.6], n: 3 })),
     ];
+    const keepSmall = every(3);
     for (const d of decos) {
       const t = toTexture(d.stk.canvas);
       const geos = [];
       for (let i = 0; i < d.n; i++) {
-        const sp = spot(3, 36, 0.4, 10);
+        const sp = spot(CHEST_FREE, 36, 0.4, 10);
         if (!sp) continue;
+        if (inMeadow(sp.x, sp.z) && !keepSmall()) continue;
         const g = stickerGeometry(d.stk, range(rng, ...d.size), 'center');
         g.rotateX(-Math.PI / 2);
         g.rotateY(rng() * Math.PI * 2);
@@ -477,9 +502,10 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
     // Seeigel (kleine gekreuzte Pappaufsteller)
     const urchins = [0x7b3fa0, 0x2f3a7a, 0xb23a6e].map((c) => art(drawUrchin(rng, c)));
     const ug = new Map();
+    const keepUrchin = every(3);
     for (let i = 0; i < 4; i++) {
       const sp = spot(7, 28, 0.6, 12);
-      if (!sp) continue;
+      if (!sp || !keepUrchin()) continue;
       const a = pick(rng, urchins);
       const { list } = crossedGeometry(a.stk, range(rng, 0.55, 0.85), 2);
       const yaw = rng() * Math.PI, y = heightAt(sp.x, sp.z) - 0.02;
@@ -506,7 +532,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
       scene.add(m);
     };
     const peb = drawPebbles(rng);
-    flat(peb, 1.6, 4, cutMat(toTexture(peb.canvas), 0, 1, 0.2), 0.02);
+    flat(peb, 1.6, 1, cutMat(toTexture(peb.canvas), 0, 1, 0.2), 0.02);
     const rip = drawRipples(rng, 0xf4d9a0);
     flat(rip, 4.2, 16, new THREE.MeshStandardMaterial({ map: toTexture(rip.canvas), transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2 }), 0.012);
 
@@ -528,7 +554,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
 
     // Rahmen vorne: zwei große Pflanzengruppen in den unteren Ecken (Tiefe!)
     for (const [fx, fz] of [[-12.5, 21.5], [13, 22]]) {
-      for (let k = 0; k < 4; k++) {
+      for (let k = 0; k < 2; k++) {
         const x = fx + range(rng, -1.6, 1.6), z = fz + range(rng, -1.2, 1.2);
         const kind = pick(rng, ['branch', 'fan', 'kelp', 'branch']);
         if (kind === 'kelp') addCutLater.push(['kelp', x, z, range(rng, 1.4, 1.9), { sway: 0.9, speed: 0.6, segY: 10 }]);
