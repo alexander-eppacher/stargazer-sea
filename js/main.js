@@ -125,10 +125,10 @@ const underwater = new ShaderPass({
       float n = fract(sin(dot(px, vec2(12.9898, 78.233))) * 43758.5453);
       c *= 0.975 + n * 0.04;
       float l = dot(c, vec3(0.299, 0.587, 0.114));
-      c = mix(vec3(l), c, 1.22);
+      c = mix(vec3(l), c, 1.32);
       vec2 q = vUv - 0.5;
       float vig = 1.0 - dot(q, q) * 0.9;
-      c *= mix(0.78 - uNight * 0.2, 1.0, smoothstep(0.0, 1.0, vig));
+      c *= mix(0.86 - uNight * 0.24, 1.0, smoothstep(0.0, 1.0, vig));
       c *= mix(vec3(1.0), vec3(0.82, 0.92, 1.12), uNight); // nachts kühler
       gl_FragColor = vec4(c, 1.0);
     }`,
@@ -139,14 +139,16 @@ composer.addPass(new OutputPass());
 const controls = new OrbitControls(camera, canvas);
 controls.target.set(0, 1.5, 0);
 controls.enableDamping = true;
-controls.dampingFactor = 0.07;
+controls.dampingFactor = 0.12;
 controls.minDistance = 4;
 controls.maxDistance = 58;
-// Diorama-Blick: eher von vorne, nicht von unten oder ganz von oben
-controls.minPolarAngle = Math.PI * 0.2;
-controls.maxPolarAngle = Math.PI * 0.47;
-controls.minAzimuthAngle = -Math.PI * 0.42;
-controls.maxAzimuthAngle = Math.PI * 0.42;
+// Ganz rundherum drehen; nicht von unten und nicht senkrecht von oben
+const POLAR_MIN = Math.PI * 0.12, POLAR_MAX = Math.PI * 0.47;
+controls.minPolarAngle = POLAR_MIN;
+controls.maxPolarAngle = POLAR_MAX;
+// Verschieben (rechte Maustaste / zwei Finger) nur flach über den Boden, zoomen zur Maus hin
+controls.screenSpacePanning = false;
+controls.zoomToCursor = true;
 controls.autoRotate = false;
 controls.enabled = false;
 
@@ -1442,9 +1444,19 @@ function frame() {
     controls.target.add(delta);
     lastFollow.copy(tmp);
   }
-  if (!fly) controls.update();
+  if (!fly) {
+    // Boden und Wasseroberfläche gleich als Neigungsgrenze einrechnen – sonst drückt die
+    // Korrektur unten die Kamera hoch und die Steuerung zieht sie wieder runter (Ruckeln)
+    const r = camera.position.distanceTo(controls.target) || 1, ty = controls.target.y;
+    const low = (heightAt(camera.position.x, camera.position.z) + 0.8 - ty) / r;
+    const high = (WORLD.surfaceY - 4 - ty) / r;
+    controls.maxPolarAngle = Math.min(POLAR_MAX, Math.acos(THREE.MathUtils.clamp(low, -1, 1)));
+    controls.minPolarAngle = Math.min(controls.maxPolarAngle, Math.max(POLAR_MIN, Math.acos(THREE.MathUtils.clamp(high, -1, 1))));
+    controls.update();
+    keepInSea();
+  }
 
-  // Kamera über dem Boden & unter Wasser halten
+  // Kamera über dem Boden & unter Wasser halten (Sicherheitsnetz)
   const minY = heightAt(camera.position.x, camera.position.z) + 0.7;
   if (camera.position.y < minY) camera.position.y = minY;
   if (camera.position.y > WORLD.surfaceY - 4 && !fly?.intro) camera.position.y = WORLD.surfaceY - 4;
@@ -1511,6 +1523,25 @@ function adaptQuality(rawDt) {
   if (quality.level === 2) { bloom.enabled = false; quality.shadowK = 0.5; }
   if (quality.level === 3) { maxPixelRatio = 1; sun.shadow.mapSize.set(1024, 1024); sun.shadow.map?.dispose(); sun.shadow.map = null; quality.shadowK = 0.3; resize(); }
   console.info(`[Stargazer Sea] Qualität reduziert auf Stufe ${quality.level} (${fps.toFixed(0)} fps)`);
+}
+
+/** Blickpunkt bleibt über der Insel: Verschieben/Zoomen führt nicht aus dem Meer hinaus. */
+const SEA_R = WORLD.crabRadius + 3, CAM_R = 46, shift = new THREE.Vector3();
+function keepInSea() {
+  const t = controls.target;
+  shift.copy(t);
+  const d = Math.hypot(t.x, t.z);
+  if (d > SEA_R) { t.x *= SEA_R / d; t.z *= SEA_R / d; }
+  t.y = THREE.MathUtils.clamp(t.y, heightAt(t.x, t.z) + 0.2, 10);
+  shift.subVectors(t, shift);
+  if (shift.lengthSq() > 1e-10) camera.position.add(shift);
+  // Kamera selbst nicht über den Inselrand hinaus: sonst näher an den Blickpunkt heranrücken
+  const c = camera.position, dx = c.x - t.x, dz = c.z - t.z;
+  if (Math.hypot(c.x, c.z) > CAM_R) {
+    const a = dx * dx + dz * dz, b = 2 * (t.x * dx + t.z * dz), q = t.x * t.x + t.z * t.z - CAM_R * CAM_R;
+    const s = (-b + Math.sqrt(Math.max(0, b * b - 4 * a * q))) / (2 * a);
+    if (s > 0 && s < 1) c.set(t.x + dx * s, t.y + (c.y - t.y) * s, t.z + dz * s);
+  }
 }
 
 /** Während des Tauchflugs: Blasen vor der Kamera, durch die wir hindurchfliegen. */
