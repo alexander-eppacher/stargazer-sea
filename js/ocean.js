@@ -7,11 +7,12 @@ import {
   drawUrchin, drawAnchor, drawSign, drawPebbles, drawRipples, drawClamShell,
   drawXmasTree, drawPresent, drawPumpkin, drawGhost,
   fishAtlas, drawJellyBell, drawTentacles, drawTurtleBody, drawFlipper, drawManta, drawStar,
-  sandTexture, cardboardTexture, frillTexture, backdropTexture, grainTexture,
+  sandTexture, cardboardTexture, frillTexture, grainTexture,
 } from './paper.js';
 import { t } from './lang.js';
 import { buildTown } from './town.js';
 import { buildPlaces, PLACE_SPOTS } from './places.js';
+import { buildDepth } from './depth.js';
 
 export const WORLD = {
   crabRadius: 27,
@@ -129,16 +130,16 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
     new THREE.PlaneGeometry(900, 900).rotateX(Math.PI / 2),
     new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, side: THREE.DoubleSide,
-      uniforms: { uTime: shared.uTime, uNight: nightU },
+      uniforms: { uTime: shared.uTime, uNight: nightU, uFade: { value: 0.01 } },
       vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
       fragmentShader: /* glsl */ `
-        uniform float uTime; uniform float uNight; varying vec3 vW;
+        uniform float uTime; uniform float uNight; uniform float uFade; varying vec3 vW;
         ${CAUSTIC_GLSL}
         void main() {
           float a = causticRaw(vW.xz * 0.02, uTime * 0.35);
           float d = length(vW.xz - cameraPosition.xz);
           vec3 col = vec3(0.7, 0.95, 1.0) * (0.5 + step(0.35, a) * 0.6) * (1.0 - uNight * 0.7);
-          gl_FragColor = vec4(col, exp(-d * 0.01) * 0.7);
+          gl_FragColor = vec4(col, exp(-d * uFade) * 0.7); // uFade: wie schnell die hellen Linien in der Ferne verschwinden
         }`,
     }),
   );
@@ -242,23 +243,11 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
   low.receiveShadow = true;
   scene.add(low);
 
-  /* ---------- Hintergrund-Kulissen ---------- */
-  const backdrops = [
-    { R: 66, H: 26, color: 0x4fb8a8, height: 0.5, bumps: 11, rep: 3 },
-    { R: 88, H: 44, color: 0x3c9cb8, height: 0.62, bumps: 8, rep: 2 },
-    { R: 118, H: 70, color: 0x5a92c9, height: 0.7, bumps: 7, rep: 2, deco: 'none' },
-  ];
-  for (const b of backdrops) {
-    const tex = backdropTexture(rng, b.color, { height: b.height, bumps: b.bumps, deco: b.deco ?? 'weed' });
-    tex.repeat.set(b.rep, 1);
-    const m = new THREE.Mesh(
-      new THREE.CylinderGeometry(b.R, b.R, b.H, 96, 1, true),
-      new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide, fog: true }),
-    );
-    m.position.y = WORLD.lowY + b.H / 2 - 0.5;
-    m.rotation.y = rng() * Math.PI * 2;
-    scene.add(m);
-  }
+  /* ---------- Hintergrund: gestaffelte Kulissen im Wasserdunst (js/depth.js) ---------- */
+  updaters.push(buildDepth(scene, mulberry32(9001), { fogColor: WORLD.fogColor, nightU, env, lowY: WORLD.lowY, surface }));
+  // Die alten Kulissen haben hier 140176 Zufallszahlen verbraucht. Überspringen, damit alle
+  // Korallen, Steine usw. danach genau an derselben Stelle bleiben wie vorher.
+  for (let i = 0; i < 140176; i++) rng();
 
   /* ---------- Schatztruhe + Papierstern ---------- */
   const chest = buildChest(scene, rng);
