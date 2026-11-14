@@ -13,3 +13,4 @@ requirements-dev.txt
 wrangler.jsonc
 README.md
 README.en.md
+CHANGELOG.md
