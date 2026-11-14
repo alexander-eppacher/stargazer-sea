@@ -18,6 +18,10 @@ Alle sichtbaren Änderungen an Stargazer Sea, die neuesten oben.
   Wasserdunst verschwimmen, ein ferner Fischschwarm und nachts leuchtende Punkte in der Ferne.
 
 ### Geändert
+- **Nur noch echte Krabben:** Die Beispiel- und Demo-Krabben, die das Meer aufgefüllt haben, sind weg.
+  Gibt es noch keinen Stern, erscheint ein kurzer Hinweis.
+- **Icons statt Emojis:** überall eigene, einheitliche Linien-Icons (Buttons, Karte, Album, Meldungen,
+  Sammelkarte). Sie sehen auf allen Geräten gleich aus.
 - **Steuerung:** Die Kamera dreht ganz rundherum, zoomt zur Maus hin und gleitet weniger nach.
   Mit der rechten Maustaste verschiebt man nur noch flach über die Insel, nicht mehr aus dem Meer hinaus.
 - **Krabbenwiese aufgeräumt:** weniger Korallen, Steine und Kleinkram, freier Platz um die Truhe.

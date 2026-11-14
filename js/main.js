@@ -284,43 +284,7 @@ const tierById = Object.fromEntries(tiers.map((t) => [t.id, t]));
 const hatName = Object.fromEntries(tiers.flatMap((t) => t.hats.map((h) => [h.id, h.name])));
 const totalWeight = tiers.reduce((s, t) => s + t.weight, 0);
 
-function demoCrabs() {
-  const rng = mulberry32(1337);
-  const a = ['coral', 'reef', 'tide', 'bubble', 'kelp', 'shell', 'pearl', 'wave', 'sandy', 'nautilus', 'octo', 'salty', 'deep', 'drift', 'lagoon', 'squid'];
-  const b = ['dev', 'coder', 'hacker', 'bot', 'byte', 'pixel', '42', 'lab', 'ops', 'js', 'rs', 'py', 'io', 'git'];
-  const out = [];
-  const usedV = {};
-  const start = Date.parse('2026-01-01T00:00:00Z');
-  for (let i = 0; i < 52; i++) {
-    let tier;
-    if (i < tiers.length) tier = tiers[tiers.length - 1 - i];
-    else {
-      let r = rng() * totalWeight;
-      tier = tiers.find((t) => (r -= t.weight) <= 0) || tiers[0];
-    }
-    // einzigartige Sorte pro Seltenheit
-    usedV[tier.id] ||= new Set();
-    let v;
-    do { v = 1 + Math.floor(rng() * SERIES); } while (usedV[tier.id].has(v));
-    usedV[tier.id].add(v);
-    out.push({
-      id: -(i + 1),
-      login: `${pick(rng, a)}-${pick(rng, b)}${rng() < 0.4 ? Math.floor(rng() * 99) : ''}`,
-      rarity: tier.id,
-      variant: v,
-      hat: pick(rng, tier.hats).id,
-      firstStarredAt: new Date(start + i * 86400000 * 3.3).toISOString(),
-      starred: true,
-      demo: true,
-    });
-  }
-  // Drei junge Krabben, damit man das Wachsen auch im Demo-Meer sieht
-  [6, 30, 54].forEach((h, k) => { out[out.length - 1 - k].firstStarredAt = new Date(realNow() - h * 3_600_000).toISOString(); });
-  return out;
-}
-
 let allCrabsData = [];
-let demo = false;
 async function fetchCrabs() {
   try {
     const d = await loadJSON('crabs.json');
@@ -484,23 +448,16 @@ function removeCrab(id) {
 const FOUNDERS = 100; // die ersten 100 Krabben tragen für immer ein Gründer-Fähnchen
 function numberCrabs(list) {
   [...list].sort((a, b) => (a.firstStarredAt < b.firstStarredAt ? -1 : a.firstStarredAt > b.firstStarredAt ? 1 : a.id - b.id))
-    .forEach((c, i) => { c.number = i + 1; c.founder = !c.demo && !c.example && c.number <= FOUNDERS; });
+    .forEach((c, i) => { c.number = i + 1; c.founder = c.number <= FOUNDERS; });
 }
 
 /** Krabbentag: Jahrestag des ersten Sterns -> Anzahl Jahre (sonst 0). */
 function birthdayYears(d) {
-  if (!d?.firstStarredAt || d.demo || d.example) return 0;
+  if (!d?.firstStarredAt) return 0;
   const f = new Date(d.firstStarredAt), t = today();
   return f.getMonth() === t.getMonth() && f.getDate() === t.getDate() ? Math.max(0, t.getFullYear() - f.getFullYear()) : 0;
 }
 
-// Solange es wenige echte Krabben gibt, füllen Beispiel-Krabben das Meer auf (zählen nirgends mit)
-const MIN_SEA = 30;
-let exampleCache = null;
-function exampleCrabs() {
-  exampleCache ||= demoCrabs().slice(0, MIN_SEA).map((c, i) => ({ ...c, id: -(1001 + i), login: tr('example.login'), demo: false, example: true }));
-  return exampleCache;
-}
 let fullList = []; // alle Einträge aus crabs.json (auch ohne Stern)
 
 async function syncCrabs(initial = false) {
@@ -512,23 +469,13 @@ async function syncCrabs(initial = false) {
   list = list.filter((c) => c && c.id != null && typeof c.login === 'string');
   numberCrabs(list);
   fullList = list;
-  let active = list.filter((c) => c.starred !== false && c.login);
-  if (initial && !active.length) {
-    demo = true;
-    active = demoCrabs();
-    numberCrabs(active);
-    $('demo-banner').classList.remove('hidden');
-  } else if (active.length && demo) {
-    demo = false;
-    for (const id of [...crabs.keys()]) removeCrab(id);
-    $('demo-banner').classList.add('hidden');
-  }
-  if (demo && !initial) return;
+  const active = list.filter((c) => c.starred !== false && c.login);
+  // Nur echte Krabben (keine Platzhalter). Ohne einen einzigen Stern: kurzer Hinweis statt leerem Rätsel.
+  $('demo-banner').classList.toggle('hidden', active.length > 0);
 
   allCrabsData = active;
   LOAD.set(84, tr('load.crabs'));
-  const fill = demo ? [] : exampleCrabs().slice(0, Math.max(0, MIN_SEA - active.length));
-  const inSea = [...active, ...fill];
+  const inSea = active;
   const ids = new Set(inSea.map((c) => c.id));
   for (const id of [...crabs.keys()]) if (!ids.has(id)) removeCrab(id);
   let delay = 0;
@@ -541,7 +488,7 @@ async function syncCrabs(initial = false) {
       if (wasSealed && !c.sealed) crab.applyLook(); // Action hat ausgepackt: echte Sorte übernehmen
       continue;
     }
-    if (initial || c.example) {
+    if (initial) {
       addCrab(c, { delay: (initial ? 2.2 : 0.5) + Math.min(delay, 3.5) + Math.random() * 0.6 });
       delay += 3.5 / Math.max(inSea.length, 1);
     } else {
@@ -616,7 +563,7 @@ for (const [panelId, btnId] of [['legend', 'legend-toggle'], ['newest', 'newest-
 /* ---------- Sound ---------- */
 const soundBtn = $('sound-btn');
 function setSoundBtn(on) {
-  soundBtn.textContent = on ? '🔊' : '🔇';
+  soundBtn.innerHTML = I18N.icon(on ? 'soundOn' : 'soundOff');
   soundBtn.setAttribute('aria-pressed', on);
   soundBtn.title = tr(on ? 'sound.off' : 'sound.on');
 }
@@ -726,21 +673,11 @@ function select(crab) {
   roomTimer = 0;
   const d = crab.data, tier = crab.tier;
   const card = $('card');
-  card.classList.toggle('example', !!d.example);
-  if (d.example) {
-    $('card-avatar').src = 'assets/crab.png';
-    $('card-login').textContent = tr('card.exampleName');
-    $('card-login').removeAttribute('href');
-    $('card-number').textContent = tr('card.exampleSub');
-    $('card-cotd').classList.add('hidden');
-    card.classList.add('hidden'); void card.offsetWidth; card.classList.remove('hidden');
-    return;
-  }
   $('card-avatar').src = avatarUrl(d, 112);
   const login = $('card-login');
   login.textContent = `@${d.login}`;
   login.href = d.id > 0 ? `https://github.com/${d.login}` : '#';
-  $('card-number').textContent = tr('card.number', { n: d.number ?? '?', demo: d.demo, founder: d.founder });
+  $('card-number').innerHTML = tr('card.number', { n: d.number ?? '?', founder: d.founder });
   $('card-cotd').classList.toggle('hidden', crab !== crabOfDay);
   const badge = $('card-rarity');
   badge.textContent = tier.name;
@@ -748,7 +685,7 @@ function select(crab) {
   badge.style.background = tier.color;
   growFields(crab);
   const years = birthdayYears(d);
-  $('card-since').textContent = longDate(d.firstStarredAt) + (years ? tr('card.birthday', { n: years }) : '');
+  $('card-since').innerHTML = longDate(d.firstStarredAt) + (years ? tr('card.birthday', { n: years }) : '');
   updateMineBtn();
   $('card-share').classList.remove('pulse');
   card.classList.add('hidden');
@@ -760,12 +697,12 @@ function select(crab) {
 /** Infokarte: Größe, Hut und Sorte (Hut und Sorte bleiben eingepackt, bis die Krabbe halbstark ist). */
 function growFields(crab) {
   const d = crab.data, tier = crab.tier, g = growth(d), now = nowMs();
-  $('card-grow').textContent = g.nextAt
+  $('card-grow').innerHTML = g.nextAt
     ? tr('card.grows', { icon: g.stage.icon, stage: g.stage.name, time: timeLeft(g.nextAt - now) })
-    : `${g.stage.icon} ${g.stage.name}`;
+    : I18N.icons(`${g.stage.icon} ${g.stage.name}`);
   if (g.locked) {
-    $('card-hat').textContent = tr('card.hatLocked', { until: untilText(g.unlockAt - now) });
-    $('card-variant').textContent = tr('card.variantLocked');
+    $('card-hat').innerHTML = tr('card.hatLocked', { until: untilText(g.unlockAt - now) });
+    $('card-variant').innerHTML = tr('card.variantLocked');
     return;
   }
   $('card-hat').textContent = (hatName[d.hat] || d.hat) + (crab.seasonHat ? tr('card.season', { hat: tr(crab.seasonHat === 'santa' ? 'season.santa' : 'season.witch') }) : '');
@@ -843,7 +780,7 @@ function focusCrab(crab) {
 $('card').querySelector('.card-close').addEventListener('click', () => select(null));
 function setFollowBtn(on) {
   $('card-follow').classList.toggle('on', on);
-  $('card-follow').textContent = tr(on ? 'card.following' : 'card.follow');
+  $('card-follow').innerHTML = tr(on ? 'card.following' : 'card.follow');
 }
 $('card-follow').addEventListener('click', () => {
   if (!selected) return;
@@ -879,7 +816,7 @@ let albumSeen = Number(store.get('albumGesehen')) || 0;
 if (!albumSeen) { albumSeen = realNow(); store.set('albumGesehen', String(albumSeen)); }
 function albumNews(from = albumSeen) {
   const now = nowMs();
-  return demo ? [] : allCrabsData.filter((d) => newsBetween(d, from, now));
+  return allCrabsData.filter((d) => newsBetween(d, from, now));
 }
 function updateAlbumBadge() {
   const n = albumNews().length, b = $('album-badge');
@@ -896,7 +833,7 @@ $('album-btn').addEventListener('click', () => {
   openAlbum({
     tiers, data: allCrabsData, crabs,
     growth, until: (t) => untilText(t - nowMs()),
-    news: (d) => (demo ? null : newsBetween(d, since, now)),
+    news: (d) => newsBetween(d, since, now),
     portrait: (c) => portraitThumb(c),
     openCard: (c) => openTradingCard(cardInfo(c, { onShow: () => { closeAlbum(); focusCrab(c); } })),
     isCardOpen: () => !!tradingCardOpen(),
@@ -909,7 +846,7 @@ function shareUrl(login) {
   return `${location.origin}${location.pathname}#@${encodeURIComponent(login)}`;
 }
 $('card-share').addEventListener('click', () => {
-  if (!selected || selected.data.example) return;
+  if (!selected) return;
   $('card-share').classList.remove('pulse');
   openTradingCard(cardInfo(selected));
   selected.celebrate(1.5);
@@ -987,16 +924,16 @@ function updateMineBtn() {
   const btn = $('card-mine');
   if (btn) {
     const isMe = !!selected && selected === me;
-    btn.textContent = tr(isMe ? 'card.notMine' : 'card.mine');
+    btn.innerHTML = tr(isMe ? 'card.notMine' : 'card.mine');
     btn.classList.toggle('on', isMe);
   }
   // Oben: "Meine Krabbe" statt Stern-Knopf, sobald man sich markiert hat
   starBtn.classList.toggle('mine', !!me);
   starBtn.querySelector('.star-label').textContent = tr(me ? 'star.mine' : 'star.label');
-  starBtn.querySelector('.star-icon').textContent = me ? '🦀' : '★';
+  starBtn.querySelector('.star-icon').innerHTML = I18N.icon(me ? 'crab' : 'star');
 }
 $('card-mine').addEventListener('click', () => {
-  if (!selected || selected.data.example) return;
+  if (!selected) return;
   if (selected === mineCrab()) { setMine(null); toast(tr('toast.unmarked')); return; }
   setMine(selected.data.id);
   selected.wave();
@@ -1270,7 +1207,7 @@ function showReveal({ color, top, big, tail, sub, at, done }) {
   $('reveal-top').textContent = top;
   $('reveal-tier').textContent = big;
   $('reveal-tail').textContent = tail;
-  $('reveal-hat').textContent = sub;
+  $('reveal-hat').innerHTML = sub;
   el.classList.remove('hidden', 'hat-shown', 'out');
   setTimeout(() => el.classList.add('hat-shown'), 1300);
   setTimeout(() => el.classList.add('out'), 4200);
@@ -1307,7 +1244,7 @@ function checkGrowth() {
       else { toast(tr('toast.grew', { stage: g.stage.name })); rememberMineStage(); }
     }
   }
-  if (selected && !selected.data.example) growFields(selected);
+  if (selected) growFields(selected);
   updateAlbumBadge();
 }
 setInterval(checkGrowth, 20_000);
@@ -1355,7 +1292,7 @@ function nextCoach() {
     return;
   }
   const c = COACH[coachStep];
-  el.textContent = c.text;
+  el.innerHTML = c.text;
   el.dataset.pos = c.pos;
   // Stern-Hinweis unter die rechte Spalte (Stern, Suche, Krabbe des Tages), nicht darüber
   const wide = !matchMedia('(max-width: 760px)').matches;

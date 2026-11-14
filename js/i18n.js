@@ -38,13 +38,13 @@
       'load.almost': 'Gleich geht\'s los',
       'load.done': 'Fertig!',
       'load.skip': 'Tippen zum Überspringen',
-      'err.file': '🦀 Die Seite wurde direkt als Datei geöffnet –<br>das blockiert der Browser.<br><br>' +
+      'err.file': '[ic:crab] Die Seite wurde direkt als Datei geöffnet –<br>das blockiert der Browser.<br><br>' +
         'Starte im Projektordner einen kleinen Server:<br>' +
         '<code style="color:#ffd27a">python3 -m http.server 8000</code><br>' +
         'und öffne dann <code style="color:#ffd27a">http://localhost:8000</code>',
-      'err.dive': '🦀 Fehler beim Abtauchen:',
-      'err.slow': '🦀 Das dauert ungewöhnlich lange…<br>Prüfe deine Internetverbindung<br>oder lade die Seite neu.',
-      'gl.title': '🦀 Keine 3D-Grafik verfügbar',
+      'err.dive': '[ic:crab] Fehler beim Abtauchen:',
+      'err.slow': '[ic:crab] Das dauert ungewöhnlich lange…<br>Prüfe deine Internetverbindung<br>oder lade die Seite neu.',
+      'gl.title': '[ic:crab] Keine 3D-Grafik verfügbar',
       'gl.text': 'Dein Browser hat WebGL ausgeschaltet oder blockiert<br>(passiert oft in Remote-Desktop-Sitzungen oder ohne Grafiktreiber).',
       'gl.firefox': '<b>Firefox:</b> <code>about:config</code> öffnen → <code>webgl.force-enabled</code> auf <code>true</code> setzen → Seite neu laden.',
       'gl.chrome': '<b>Chrome/Edge:</b> Einstellungen → System → „Grafikbeschleunigung verwenden“ einschalten.<br>Falls das nicht reicht: <code>chrome://flags/#ignore-gpu-blocklist</code> aktivieren und neu starten.',
@@ -72,14 +72,14 @@
       'sound.on': 'Unterwasser-Geräusche an',
       'sound.off': 'Ton aus',
       'search.placeholder': 'Finde deine Krabbe… (@name)',
-      'search.none': 'Keine Krabbe gefunden – jeder Stern wird zur Krabbe ⭐',
+      'search.none': 'Keine Krabbe gefunden – jeder Stern wird zur Krabbe [ic:star]',
       'wait.other': 'Anderer Name',
       'wait.cancel': 'Warten beenden',
       'wait.soon': 'schlüpft gleich …',
       'wait.slow': 'Noch nicht da – schaut alle 90 s nach',
       'cotd.go': 'Zur Krabbe des Tages',
       'cotd': 'Krabbe des Tages',
-      'cotd.star': '★ Krabbe des Tages',
+      'cotd.star': '[ic:star] Krabbe des Tages',
       'legend.title': 'Seltenheiten',
       'legend.note': 'Der Hut wird beim ersten Stern ausgewürfelt und bleibt für immer.',
       'newest.title': 'Neu im Meer',
@@ -88,34 +88,29 @@
       'card.hat': 'Hut',
       'card.variant': 'Sorte',
       'card.since': 'Im Meer seit',
-      'card.follow': '🎥 Folgen',
-      'card.following': '🎥 Folge…',
-      'card.wave': '👋 Winken',
-      'card.share': '📤 Teilen',
-      'card.mine': '💗 Das bin ich',
-      'card.notMine': '🙅 Das bin ich nicht',
-      'card.exampleText': 'Das ist eine <b>Beispiel-Krabbe</b>. Sie hält den Platz warm, bis mehr Leute da sind.',
-      'card.exampleBtn': '★ Hol dir deine eigene',
-      'card.exampleName': 'Beispiel-Krabbe',
-      'card.exampleSub': 'Platzhalter, bis mehr Leute da sind',
-      'card.number': function (v) { return 'Krabbe #' + v.n + (v.demo ? ' · Demo' : '') + (v.founder ? ' · 🚩 Gründerkrabbe' : ''); },
-      'card.birthday': function (v) { return ' · 🎈 Krabbentag (' + v.n + ' ' + (v.n === 1 ? 'Jahr' : 'Jahre') + ')'; },
+      'card.follow': '[ic:video] Folgen',
+      'card.following': '[ic:video] Folge…',
+      'card.wave': '[ic:wave] Winken',
+      'card.share': '[ic:share] Teilen',
+      'card.mine': '[ic:heart] Das bin ich',
+      'card.notMine': '[ic:heartoff] Das bin ich nicht',
+      'card.number': function (v) { return 'Krabbe #' + v.n + (v.founder ? ' · [ic:flag] Gründerkrabbe' : ''); },
+      'card.birthday': function (v) { return ' · [ic:balloon] Krabbentag (' + v.n + ' ' + (v.n === 1 ? 'Jahr' : 'Jahre') + ')'; },
       'card.grows': '{icon} {stage} · wächst in {time}',
-      'card.hatLocked': '🔒 wird {until} enthüllt',
-      'card.variantLocked': '🔒 noch eingepackt',
+      'card.hatLocked': '[ic:lock] wird {until} enthüllt',
+      'card.variantLocked': '[ic:lock] noch eingepackt',
       'card.season': ' (+ {hat} als Saison-Deko)',
       'card.variantNr': 'Nr. {v} · {label}',
       'season.santa': 'Zipfelmütze',
       'season.witch': 'Hexenhut',
-      'example.login': 'Beispiel',
-      'demo.banner': 'Demo-Modus: noch keine Sterne – hier schwimmen Beispielkrabben.',
+      'demo.banner': 'Noch keine Sterne – gib den ersten, dann zieht deine Krabbe hier ein.',
       'hint': 'Ziehen = drehen · Scrollen = zoomen · Krabbe anklicken',
 
       // Stern-Ablauf
       'join.title': 'Jeder Stern wird zur Krabbe',
       'join.star': 'Stern geben',
       'join.starText': 'Gib dem Projekt auf GitHub einen Stern.',
-      'join.starBtn': '★ Zu GitHub',
+      'join.starBtn': '[ic:star] Zu GitHub',
       'join.name': 'Wie heißt du auf GitHub?',
       'join.placeholder': '@deinname',
       'join.nameLabel': 'GitHub-Name',
@@ -126,25 +121,25 @@
       'join.badName': 'Das sieht nicht wie ein GitHub-Name aus.',
 
       // Meldungen
-      'toast.hatched': '🐣 <b>@{login}</b> ist geschlüpft! <span style="color:{color}">{tier}</span>',
-      'toast.arrived': '🦀 <b>@{login}</b> ist ins Meer gezogen! <span style="color:{color}">{hat}</span>',
-      'toast.treasure': '🎉 Schatz gefunden! Die neueste Krabbe ist <b>@{login}</b>',
+      'toast.hatched': '[ic:hatch] <b>@{login}</b> ist geschlüpft! <span style="color:{color}">{tier}</span>',
+      'toast.arrived': '[ic:crab] <b>@{login}</b> ist ins Meer gezogen! <span style="color:{color}">{hat}</span>',
+      'toast.treasure': '[ic:party] Schatz gefunden! Die neueste Krabbe ist <b>@{login}</b>',
       'toast.unmarked': 'Markierung entfernt.',
-      'toast.marked': '💗 Gemerkt: <b>@{login}</b> ist deine Krabbe (nur in diesem Browser).',
+      'toast.marked': '[ic:heart] Gemerkt: <b>@{login}</b> ist deine Krabbe (nur in diesem Browser).',
       'toast.grewInline': ' Deine Krabbe ist gewachsen: jetzt <b>{stage}</b>!',
-      'toast.welcome': '👋 Willkommen zurück, <b>@{login}</b>!{grew}',
-      'toast.comeBack': 'Deine Krabbe wartet – gib den Stern wieder, dann kommt genau sie zurück. ⭐',
-      'toast.found': '🦀 Da bist du ja, <b>@{login}</b>!',
-      'toast.egg': '🥚 Dein Ei liegt bei der Schatzkiste. Sobald dein Stern da ist, schlüpft <b>@{name}</b> (1–3 Minuten).',
+      'toast.welcome': '[ic:wave] Willkommen zurück, <b>@{login}</b>!{grew}',
+      'toast.comeBack': 'Deine Krabbe wartet – gib den Stern wieder, dann kommt genau sie zurück. [ic:star]',
+      'toast.found': '[ic:crab] Da bist du ja, <b>@{login}</b>!',
+      'toast.egg': '[ic:egg] Dein Ei liegt bei der Schatzkiste. Sobald dein Stern da ist, schlüpft <b>@{name}</b> (1–3 Minuten).',
       'toast.slow': 'Dauert heute länger. Hast du den Stern wirklich gegeben? Die Seite sucht weiter, sobald du wiederkommst.',
       'toast.stopWait': 'Warten beendet.',
-      'toast.grew': '🦀 Deine Krabbe ist gewachsen: jetzt <b>{stage}</b>!',
+      'toast.grew': '[ic:crab] Deine Krabbe ist gewachsen: jetzt <b>{stage}</b>!',
 
       // Enthüllung
       'reveal.top': 'Du bist eine',
       'reveal.big': function (v) { return v.tier.toUpperCase() + 'E'; },
       'reveal.tail': ' KRABBE!',
-      'reveal.locked': '🔒 Dein Hut wird {until} enthüllt',
+      'reveal.locked': '[ic:lock] Dein Hut wird {until} enthüllt',
       'reveal.noHat': 'ganz ohne Hut – pur!',
       'reveal.withHat': 'mit {hat}!',
       'unpack.top': 'Ausgepackt! Deine Krabbe trägt',
@@ -153,9 +148,9 @@
       'unpack.sub': 'Sorte Nr. {v} · {label}',
 
       // Erste Schritte
-      'coach.drag': '👆 Ziehen zum Umschauen',
-      'coach.tap': '🦀 Tippe eine Krabbe an',
-      'coach.star': '⭐ Jeder Stern wird zur Krabbe – auch deiner',
+      'coach.drag': '[ic:pointer] Ziehen zum Umschauen',
+      'coach.tap': '[ic:crab] Tippe eine Krabbe an',
+      'coach.star': '[ic:star] Jeder Stern wird zur Krabbe – auch deiner',
 
       // Wachsen
       'time.soon': 'gleich',
@@ -173,11 +168,11 @@
       'al.new': 'NEU', 'al.unpack': 'AUSGEPACKT', 'al.grow': 'GEWACHSEN',
       'al.sub': 'Jede Krabbe gibt es nur <b>ein einziges Mal</b>.<br>Pro Seltenheit {n} Sorten – wer findet die Mythischen?',
       'al.total': '<b>{n}</b> von {max} Krabben im Meer',
-      'al.nurseryLink': function (v) { return '🐣 <b>' + v.n + '</b> ' + (v.n === 1 ? 'Krabbe wächst' : 'Krabben wachsen') + ' noch in der Kinderstube'; },
+      'al.nurseryLink': function (v) { return '[ic:hatch] <b>' + v.n + '</b> ' + (v.n === 1 ? 'Krabbe wächst' : 'Krabben wachsen') + ' noch in der Kinderstube'; },
       'al.hint': 'Tipp: Klick auf eine Krabbe öffnet ihre Sammelkarte.',
       'al.packTitle': '@{login} – wird {until} ausgepackt',
       'al.nursery': 'Kinderstube',
-      'al.nurseryTab': '🐣 Kinder',
+      'al.nurseryTab': '[ic:hatch] Kinder',
       'al.rangeOf': '{a}–{b} von {n}',
       'al.wrapped': 'eingepackt bis halbstark',
       'al.slot': '@{login} – Sorte {v}',
@@ -195,18 +190,18 @@
       'tc.crab': 'Krabbe #{n}',
       'tc.founder': 'GRÜNDER Nr. {n}',
       'tc.hatIn': 'Hut {until}',
-      'tc.hatLocked': 'Hut: 🔒 ???',
+      'tc.hatLocked': 'Hut: [ic:lock] ???',
       'tc.hat': 'Hut: {hat}',
-      'tc.birthday': function (v) { return '🎈 Heute ist Krabbentag: seit ' + v.n + ' ' + (v.n === 1 ? 'Jahr' : 'Jahren') + ' im Meer!'; },
+      'tc.birthday': function (v) { return '[ic:balloon] Heute ist Krabbentag: seit ' + v.n + ' ' + (v.n === 1 ? 'Jahr' : 'Jahren') + ' im Meer!'; },
       'tc.flavor': '„{text}“',
       'tc.foot': 'Krabbe #{n} · seit {since}',
       'tc.cotd1': 'KRABBE', 'tc.cotd2': 'DES TAGES',
-      'tc.copy': '🔗 Link kopieren',
-      'tc.share': '📤 Teilen',
-      'tc.save': '💾 Bild speichern',
-      'tc.show': '📍 Im Meer zeigen',
+      'tc.copy': '[ic:link] Link kopieren',
+      'tc.share': '[ic:share] Teilen',
+      'tc.save': '[ic:save] Bild speichern',
+      'tc.show': '[ic:pin] Im Meer zeigen',
       'tc.aria': 'Sammelkarte von @{login}',
-      'tc.copied': '🔗 Link kopiert: <b>{url}</b>',
+      'tc.copied': '[ic:link] Link kopiert: <b>{url}</b>',
       'tc.copyFail': 'Kopieren hat nicht geklappt – Link: {url}',
       'tc.file': 'krabbe-{login}.png',
       'share.locked': function (v) {
@@ -259,13 +254,13 @@
       'load.almost': 'Almost there',
       'load.done': 'Done!',
       'load.skip': 'Tap to skip',
-      'err.file': '🦀 The page was opened directly as a file –<br>the browser blocks that.<br><br>' +
+      'err.file': '[ic:crab] The page was opened directly as a file –<br>the browser blocks that.<br><br>' +
         'Start a small server in the project folder:<br>' +
         '<code style="color:#ffd27a">python3 -m http.server 8000</code><br>' +
         'and then open <code style="color:#ffd27a">http://localhost:8000</code>',
-      'err.dive': '🦀 Something went wrong while diving in:',
-      'err.slow': '🦀 This is taking unusually long…<br>Check your internet connection<br>or reload the page.',
-      'gl.title': '🦀 No 3D graphics available',
+      'err.dive': '[ic:crab] Something went wrong while diving in:',
+      'err.slow': '[ic:crab] This is taking unusually long…<br>Check your internet connection<br>or reload the page.',
+      'gl.title': '[ic:crab] No 3D graphics available',
       'gl.text': 'Your browser has WebGL turned off or blocked<br>(this often happens in remote desktop sessions or without graphics drivers).',
       'gl.firefox': '<b>Firefox:</b> open <code>about:config</code> → set <code>webgl.force-enabled</code> to <code>true</code> → reload the page.',
       'gl.chrome': '<b>Chrome/Edge:</b> Settings → System → turn on “Use graphics acceleration”.<br>If that is not enough: enable <code>chrome://flags/#ignore-gpu-blocklist</code> and restart.',
@@ -292,14 +287,14 @@
       'sound.on': 'Turn on underwater sounds',
       'sound.off': 'Sound off',
       'search.placeholder': 'Find your crab… (@name)',
-      'search.none': 'No crab found – every star becomes a crab ⭐',
+      'search.none': 'No crab found – every star becomes a crab [ic:star]',
       'wait.other': 'Other name',
       'wait.cancel': 'Stop waiting',
       'wait.soon': 'hatching soon …',
       'wait.slow': 'Not here yet – checking every 90 s',
       'cotd.go': 'Go to the crab of the day',
       'cotd': 'Crab of the day',
-      'cotd.star': '★ Crab of the day',
+      'cotd.star': '[ic:star] Crab of the day',
       'legend.title': 'Rarities',
       'legend.note': 'The hat is rolled with the first star and stays forever.',
       'newest.title': 'New in the sea',
@@ -308,33 +303,28 @@
       'card.hat': 'Hat',
       'card.variant': 'Variant',
       'card.since': 'In the sea since',
-      'card.follow': '🎥 Follow',
-      'card.following': '🎥 Following…',
-      'card.wave': '👋 Wave',
-      'card.share': '📤 Share',
-      'card.mine': '💗 That’s me',
-      'card.notMine': '🙅 That’s not me',
-      'card.exampleText': 'This is an <b>example crab</b>. It keeps the spot warm until more people arrive.',
-      'card.exampleBtn': '★ Get your own',
-      'card.exampleName': 'Example crab',
-      'card.exampleSub': 'Placeholder until more people arrive',
-      'card.number': function (v) { return 'Crab #' + v.n + (v.demo ? ' · Demo' : '') + (v.founder ? ' · 🚩 Founder crab' : ''); },
-      'card.birthday': function (v) { return ' · 🎈 Crab day (' + v.n + ' ' + (v.n === 1 ? 'year' : 'years') + ')'; },
+      'card.follow': '[ic:video] Follow',
+      'card.following': '[ic:video] Following…',
+      'card.wave': '[ic:wave] Wave',
+      'card.share': '[ic:share] Share',
+      'card.mine': '[ic:heart] That’s me',
+      'card.notMine': '[ic:heartoff] That’s not me',
+      'card.number': function (v) { return 'Crab #' + v.n + (v.founder ? ' · [ic:flag] Founder crab' : ''); },
+      'card.birthday': function (v) { return ' · [ic:balloon] Crab day (' + v.n + ' ' + (v.n === 1 ? 'year' : 'years') + ')'; },
       'card.grows': '{icon} {stage} · grows in {time}',
-      'card.hatLocked': '🔒 revealed {until}',
-      'card.variantLocked': '🔒 still wrapped',
+      'card.hatLocked': '[ic:lock] revealed {until}',
+      'card.variantLocked': '[ic:lock] still wrapped',
       'card.season': ' (+ {hat} as seasonal decoration)',
       'card.variantNr': 'No. {v} · {label}',
       'season.santa': 'Santa hat',
       'season.witch': 'Witch hat',
-      'example.login': 'Example',
-      'demo.banner': 'Demo mode: no stars yet – example crabs are swimming here.',
+      'demo.banner': 'No stars yet – give the first one and your crab moves in.',
       'hint': 'Drag = rotate · Scroll = zoom · Click a crab',
 
       'join.title': 'Every star becomes a crab',
       'join.star': 'Give a star',
       'join.starText': 'Star the project on GitHub.',
-      'join.starBtn': '★ To GitHub',
+      'join.starBtn': '[ic:star] To GitHub',
       'join.name': 'What’s your GitHub name?',
       'join.placeholder': '@yourname',
       'join.nameLabel': 'GitHub name',
@@ -344,24 +334,24 @@
       'join.note': 'No star needed to look around: the sea is a picture of all stargazers.',
       'join.badName': 'That doesn’t look like a GitHub name.',
 
-      'toast.hatched': '🐣 <b>@{login}</b> just hatched! <span style="color:{color}">{tier}</span>',
-      'toast.arrived': '🦀 <b>@{login}</b> moved into the sea! <span style="color:{color}">{hat}</span>',
-      'toast.treasure': '🎉 Treasure found! The newest crab is <b>@{login}</b>',
+      'toast.hatched': '[ic:hatch] <b>@{login}</b> just hatched! <span style="color:{color}">{tier}</span>',
+      'toast.arrived': '[ic:crab] <b>@{login}</b> moved into the sea! <span style="color:{color}">{hat}</span>',
+      'toast.treasure': '[ic:party] Treasure found! The newest crab is <b>@{login}</b>',
       'toast.unmarked': 'Mark removed.',
-      'toast.marked': '💗 Saved: <b>@{login}</b> is your crab (only in this browser).',
+      'toast.marked': '[ic:heart] Saved: <b>@{login}</b> is your crab (only in this browser).',
       'toast.grewInline': ' Your crab has grown: now <b>{stage}</b>!',
-      'toast.welcome': '👋 Welcome back, <b>@{login}</b>!{grew}',
-      'toast.comeBack': 'Your crab is waiting – star the project again and exactly this crab comes back. ⭐',
-      'toast.found': '🦀 There you are, <b>@{login}</b>!',
-      'toast.egg': '🥚 Your egg is next to the treasure chest. As soon as your star arrives, <b>@{name}</b> hatches (1–3 minutes).',
+      'toast.welcome': '[ic:wave] Welcome back, <b>@{login}</b>!{grew}',
+      'toast.comeBack': 'Your crab is waiting – star the project again and exactly this crab comes back. [ic:star]',
+      'toast.found': '[ic:crab] There you are, <b>@{login}</b>!',
+      'toast.egg': '[ic:egg] Your egg is next to the treasure chest. As soon as your star arrives, <b>@{name}</b> hatches (1–3 minutes).',
       'toast.slow': 'Taking longer today. Did you really give the star? The page keeps looking whenever you come back.',
       'toast.stopWait': 'Stopped waiting.',
-      'toast.grew': '🦀 Your crab has grown: now <b>{stage}</b>!',
+      'toast.grew': '[ic:crab] Your crab has grown: now <b>{stage}</b>!',
 
       'reveal.top': function (v) { return 'You are ' + an(v.tier); },
       'reveal.big': function (v) { return v.tier.toUpperCase(); },
       'reveal.tail': ' CRAB!',
-      'reveal.locked': '🔒 Your hat will be revealed {until}',
+      'reveal.locked': '[ic:lock] Your hat will be revealed {until}',
       'reveal.noHat': 'no hat at all – pure!',
       'reveal.withHat': function (v) { return 'with ' + an(v.hat) + ' ' + v.hat + '!'; },
       'unpack.top': 'Unwrapped! Your crab is wearing',
@@ -369,9 +359,9 @@
       'unpack.pure': ' – PURE!',
       'unpack.sub': 'Variant No. {v} · {label}',
 
-      'coach.drag': '👆 Drag to look around',
-      'coach.tap': '🦀 Tap a crab',
-      'coach.star': '⭐ Every star becomes a crab – yours too',
+      'coach.drag': '[ic:pointer] Drag to look around',
+      'coach.tap': '[ic:crab] Tap a crab',
+      'coach.star': '[ic:star] Every star becomes a crab – yours too',
 
       'time.soon': 'soon',
       'time.in': 'in {t}',
@@ -386,11 +376,11 @@
       'al.new': 'NEW', 'al.unpack': 'UNWRAPPED', 'al.grow': 'GREW',
       'al.sub': 'Every crab exists <b>only once</b>.<br>{n} variants per rarity – who finds the mythic ones?',
       'al.total': '<b>{n}</b> of {max} crabs in the sea',
-      'al.nurseryLink': function (v) { return '🐣 <b>' + v.n + '</b> ' + (v.n === 1 ? 'crab is' : 'crabs are') + ' still growing in the nursery'; },
+      'al.nurseryLink': function (v) { return '[ic:hatch] <b>' + v.n + '</b> ' + (v.n === 1 ? 'crab is' : 'crabs are') + ' still growing in the nursery'; },
       'al.hint': 'Tip: click a crab to open its trading card.',
       'al.packTitle': '@{login} – unwrapped {until}',
       'al.nursery': 'Nursery',
-      'al.nurseryTab': '🐣 Nursery',
+      'al.nurseryTab': '[ic:hatch] Nursery',
       'al.rangeOf': '{a}–{b} of {n}',
       'al.wrapped': 'wrapped until teen',
       'al.slot': '@{login} – variant {v}',
@@ -407,18 +397,18 @@
       'tc.crab': 'Crab #{n}',
       'tc.founder': 'FOUNDER No. {n}',
       'tc.hatIn': 'Hat {until}',
-      'tc.hatLocked': 'Hat: 🔒 ???',
+      'tc.hatLocked': 'Hat: [ic:lock] ???',
       'tc.hat': 'Hat: {hat}',
-      'tc.birthday': function (v) { return '🎈 It’s crab day: ' + v.n + ' ' + (v.n === 1 ? 'year' : 'years') + ' in the sea!'; },
+      'tc.birthday': function (v) { return '[ic:balloon] It’s crab day: ' + v.n + ' ' + (v.n === 1 ? 'year' : 'years') + ' in the sea!'; },
       'tc.flavor': '“{text}”',
       'tc.foot': 'Crab #{n} · since {since}',
       'tc.cotd1': 'CRAB', 'tc.cotd2': 'OF THE DAY',
-      'tc.copy': '🔗 Copy link',
-      'tc.share': '📤 Share',
-      'tc.save': '💾 Save image',
-      'tc.show': '📍 Show in the sea',
+      'tc.copy': '[ic:link] Copy link',
+      'tc.share': '[ic:share] Share',
+      'tc.save': '[ic:save] Save image',
+      'tc.show': '[ic:pin] Show in the sea',
       'tc.aria': 'Trading card of @{login}',
-      'tc.copied': '🔗 Link copied: <b>{url}</b>',
+      'tc.copied': '[ic:link] Link copied: <b>{url}</b>',
       'tc.copyFail': 'Copying didn’t work – link: {url}',
       'tc.file': 'crab-{login}.png',
       'share.locked': function (v) {
@@ -487,8 +477,45 @@
   var lang = pickLang();
   document.documentElement.lang = lang;
 
+  /* ---------- Icons (eigene, einfache Linien-Icons; Farbe = Textfarbe) ----------
+     In Texten als Platzhalter [ic:name]; t() macht daraus ein kleines SVG. */
+  var ICONS = {
+    crab: ['M7 13.5a5 3.5 0 1 0 10 0a5 3.5 0 1 0 -10 0', 'M10 10V8M14 10V8', 'M7.5 12L4.5 9.5L3 7M4.5 9.5L6.5 7.5', 'M16.5 12l3-2.5L21 7M19.5 9.5L17.5 7.5', 'M8.5 16l-3 2M15.5 16l3 2M10 17l-1.5 2.5M14 17l1.5 2.5'],
+    star: ['M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z'],
+    book: ['M3.5 5.5C6 4.5 9.5 4.5 12 6c2.5-1.5 6-1.5 8.5-.5V19c-2.5-1-6-1-8.5.5C9.5 18 6 18 3.5 19z', 'M12 6v13.5'],
+    soundOn: ['M4 9.5h3.5L12 6v12l-4.5-3.5H4z', 'M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11'],
+    soundOff: ['M4 9.5h3.5L12 6v12l-4.5-3.5H4z', 'M16 9.5l5 5M21 9.5l-5 5'],
+    egg: ['M12 3.5c3.3 0 6 4.6 6 9a6 6 0 0 1-12 0c0-4.4 2.7-9 6-9z'],
+    hatch: ['M6 13a6 6 0 0 0 12 0', 'M6 13l2-1.6 2 1.6 2-1.6 2 1.6 2-1.6 2 1.6', 'M8.6 8.8C9.3 6 10.6 4.2 12 4.2s2.7 1.8 3.4 4.6'],
+    x: ['M6.5 6.5l11 11M17.5 6.5l-11 11'],
+    video: ['M3.5 7.5h11v9h-11z', 'M14.5 10.5l5-3v9l-5-3z'],
+    wave: ['M8 13.5V7a1.5 1.5 0 0 1 3 0v5M11 11.5V5.5a1.5 1.5 0 0 1 3 0V11M14 11V7a1.5 1.5 0 0 1 3 0v7a6 6 0 0 1-6 6h-.6a5 5 0 0 1-4.2-2.3L4.4 15a1.5 1.5 0 0 1 2.5-1.6L8 15', 'M19.5 3.5l1.5-1.5M20 7h2'],
+    share: ['M12 14.5V3.5M8 7.5l4-4 4 4', 'M6 11v8.5h12V11'],
+    heart: ['M12 19.5s-7.5-4.6-7.5-9.7A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5c0 5.1-7.5 9.7-7.5 9.7z'],
+    heartoff: ['M12 19.5s-7.5-4.6-7.5-9.7A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5c0 5.1-7.5 9.7-7.5 9.7z', 'M4 4l16 16'],
+    flag: ['M5.5 21V4', 'M5.5 4.5h11l-2 3.5 2 3.5h-11'],
+    balloon: ['M12 3.5a5.5 6.5 0 0 1 5.5 6.5c0 3.6-2.5 6.5-5.5 6.5S6.5 13.6 6.5 10A5.5 6.5 0 0 1 12 3.5z', 'M11 16.5l1 1.5 1-1.5M12 18c0 1.5-1.5 2-1 3.5'],
+    lock: ['M6.5 11h11v9h-11z', 'M8.5 11V8a3.5 3.5 0 0 1 7 0v3'],
+    party: ['M4 20l3.5-11 7.5 7.5z', 'M14 4v2M20 10h-2M18 6l-1.5 1.5M10 5.5c.6 1 .6 2 0 3'],
+    pointer: ['M9 12V4.5a1.5 1.5 0 0 1 3 0V10M12 9.5a1.5 1.5 0 0 1 3 0V11M15 10.5a1.5 1.5 0 0 1 3 0V15a5.5 5.5 0 0 1-5.5 5.5h-1A5 5 0 0 1 7.2 18L5 14.5a1.5 1.5 0 0 1 2.5-1.6L9 14.5'],
+    link: ['M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1', 'M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1'],
+    save: ['M12 4v11M7.5 10.5L12 15l4.5-4.5', 'M5 19.5h14'],
+    pin: ['M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z', 'M12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z'],
+  };
+  function icon(name) {
+    var p = ICONS[name];
+    if (!p) return '';
+    return '<svg class="ic ic-' + name + '" viewBox="0 0 24 24" aria-hidden="true">' +
+      p.map(function (d) { return '<path d="' + d + '"/>'; }).join('') + '</svg>';
+  }
+  /** [ic:name]-Platzhalter in einem Text durch Icons ersetzen (oder mit plain=true entfernen). */
+  function icons(str, plain) {
+    if (typeof str !== 'string') return str;
+    return str.replace(/\[ic:(\w+)\]\s?/g, function (m, n) { return plain ? '' : icon(n) + (m.length > n.length + 5 ? ' ' : ''); });
+  }
+
   /** Text holen. fallback: falls es den Schlüssel in dieser Sprache nicht gibt (z. B. Hutnamen auf Deutsch). */
-  function t(key, vars, fallback) {
+  function raw(key, vars, fallback) {
     var v = DICT[lang][key];
     if (v === undefined) v = fallback !== undefined ? fallback : DICT.de[key];
     if (v === undefined) return key;
@@ -496,16 +523,24 @@
     if (typeof v !== 'string' || !vars) return v;
     return v.replace(/\{(\w+)\}/g, function (m, k) { return vars[k] !== undefined ? vars[k] : m; });
   }
+  /** Text mit Icons (als HTML einsetzen). */
+  function t(key, vars, fallback) { return icons(raw(key, vars, fallback)); }
+  /** Text ohne Icons (für Zeichenflächen, Titel, Vorlesetexte). */
+  function plain(key, vars, fallback) { return icons(raw(key, vars, fallback), true); }
 
   /** Alle markierten Texte in root übersetzen. */
   function apply(root) {
     root = root || document;
-    root.querySelectorAll('[data-i18n]').forEach(function (el) { el.textContent = t(el.getAttribute('data-i18n')); });
+    root.querySelectorAll('[data-i18n]').forEach(function (el) {
+      var s = t(el.getAttribute('data-i18n'));
+      if (s.indexOf('<svg') >= 0) el.innerHTML = s; else el.textContent = s;
+    });
+    root.querySelectorAll('[data-ic]').forEach(function (el) { el.innerHTML = icon(el.getAttribute('data-ic')); });
     root.querySelectorAll('[data-i18n-html]').forEach(function (el) { el.innerHTML = t(el.getAttribute('data-i18n-html')); });
     root.querySelectorAll('[data-i18n-attr]').forEach(function (el) {
       el.getAttribute('data-i18n-attr').split(',').forEach(function (pair) {
         var p = pair.split(':');
-        el.setAttribute(p[0].trim(), t(p[1].trim()));
+        el.setAttribute(p[0].trim(), plain(p[1].trim()));
       });
     });
     root.querySelectorAll('[data-lang]').forEach(function (b) {
@@ -530,6 +565,6 @@
   window.I18N = {
     lang: lang,
     locale: lang === 'de' ? 'de-DE' : 'en-US',
-    t: t, apply: apply, set: set, an: an, ord: ord,
+    t: t, plain: plain, icon: icon, icons: icons, iconPaths: ICONS, apply: apply, set: set, an: an, ord: ord,
   };
 })();

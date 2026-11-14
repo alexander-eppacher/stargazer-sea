@@ -5,7 +5,7 @@
  * Krabben, die noch wachsen, liegen eingepackt in der Kinderstube (kein Spicken: Platz und Hut bleiben geheim).
  */
 import { SERIES } from './variants.js';
-import { t as tr } from './lang.js';
+import { t as tr, icon } from './lang.js';
 
 const PER_PAGE = 20; // 4 × 5
 let state = null;
@@ -73,7 +73,7 @@ function pageHTML(p, s) {
       const t = s.tiers.find((x) => x.id === d.rarity) || s.tiers[0];
       const g = s.growth(d);
       return `<button class="al-slot owned pack" data-id="${d.id}" style="--c:${t.color}" title="${esc(tr('al.packTitle', { login: d.login, until: s.until(g.unlockAt) }))}">
-        <span class="al-pack"><span class="al-lock">🔒</span></span>${newTag(s, d)}
+        <span class="al-pack"><span class="al-lock">${icon('lock')}</span></span>${newTag(s, d)}
         <span class="al-num">${esc(s.until(g.unlockAt))}</span><span class="al-name">@${esc(d.login)}</span></button>`;
     }).join('');
     return `
@@ -186,7 +186,7 @@ export function openAlbum(opts) {
         <span class="al-pageno"></span>
         <button class="btn al-next" aria-label="${tr('al.next')}">▶</button>
       </div>
-      <button class="al-close" aria-label="${tr('al.close')}">✕</button>
+      <button class="al-close" aria-label="${tr('al.close')}">${icon('x')}</button>
     </div>`;
   document.body.appendChild(el);
   const single = matchMedia('(max-width: 760px)').matches;

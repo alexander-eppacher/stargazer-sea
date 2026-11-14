@@ -15,10 +15,10 @@ import { t } from './lang.js';
 export const HOUR = 3_600_000;
 const stage = (id, name, at, scale, icon) => ({ id, at, scale, icon, get name() { return t(`stage.${id}`, null, name); } });
 export const STAGES = [
-  stage('baby', 'Baby', 0, 0.45, '🐣'),
-  stage('jung', 'Jungkrabbe', 24, 0.62, '🦀'),
-  stage('halbstark', 'Halbstark', 48, 0.8, '🦀'),
-  stage('gross', 'Ausgewachsen', 72, 1, '🦀'),
+  stage('baby', 'Baby', 0, 0.45, '[ic:hatch]'),
+  stage('jung', 'Jungkrabbe', 24, 0.62, '[ic:crab]'),
+  stage('halbstark', 'Halbstark', 48, 0.8, '[ic:crab]'),
+  stage('gross', 'Ausgewachsen', 72, 1, '[ic:crab]'),
 ];
 export const UNLOCK = 2; // ab dieser Stufe sind Hut und Sorte sichtbar
 const GROWN = { index: STAGES.length - 1, stage: STAGES[STAGES.length - 1], scale: 1, locked: false, nextAt: null, unlockAt: null, start: null };
@@ -27,7 +27,7 @@ const SEALED = { ...GROWN, locked: true };
 /** Wachstum einer Krabbe zum Zeitpunkt now (ms). */
 export function growthOf(d, now) {
   const start = Date.parse(d?.firstStarredAt || '');
-  if (!Number.isFinite(start) || d.example) return d?.sealed ? SEALED : GROWN;
+  if (!Number.isFinite(start)) return d?.sealed ? SEALED : GROWN;
   const age = (now - start) / HOUR;
   let index = 0;
   for (let i = 0; i < STAGES.length; i++) if (age >= STAGES[i].at) index = i;
@@ -49,7 +49,7 @@ export function growthOf(d, now) {
  */
 export function newsBetween(d, from, to) {
   const start = Date.parse(d?.firstStarredAt || '');
-  if (!Number.isFinite(start) || d.example || d.demo) return null;
+  if (!Number.isFinite(start)) return null;
   const inside = (t) => t > from && t <= to;
   if (inside(start)) return 'new';
   if (inside(start + STAGES[UNLOCK].at * HOUR) && !d.sealed) return 'unpack';

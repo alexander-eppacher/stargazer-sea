@@ -772,11 +772,6 @@ body.intro-flying #newest, body.intro-flying #demo-banner, body.intro-flying #hi
    ========================================================= */
 .card-mine { width: 100%; margin-top: 8px; padding: 6px; font-size: 13px; }
 .card-mine.on { background: #ffe3ee; border-color: #ffb3cb; }
-#card-example { display: none; }
-#card.example #card-example { display: block; }
-#card.example dl, #card.example .card-buttons, #card.example .card-mine, #card.example #card-rarity { display: none; }
-#card-example p { font-size: 13px; line-height: 1.45; margin: 8px 0 10px; }
-#card-example .btn { width: 100%; padding: 8px; font-size: 13px; }
 .btn-star.mine { background: linear-gradient(135deg, #ffd1e0, #ff9ec0) !important; }
 @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
 .btn-share.pulse { animation: pulse 1s ease-in-out 4; }
@@ -908,3 +903,15 @@ body.intro-flying #newest, body.intro-flying #demo-banner, body.intro-flying #hi
 @media (max-width: 760px) {
   .lang-switch button { padding: 3px 6px; min-width: 28px; }
 }
+
+/* ---------- Icons (eigene Linien-Icons statt Emojis; Farbe = Textfarbe) ---------- */
+.ic {
+  width: 1.15em; height: 1.15em; vertical-align: -0.22em; flex-shrink: 0;
+  fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.ic-star { fill: currentColor; stroke: none; }
+.ic-heart, .ic-heartoff { color: #e8558b; }
+.toast .ic-star, #coach .ic-star, #card-cotd .ic-star, .cotd-star .ic-star { color: #f5b301; }
+.icon-btn .ic { width: 1.35em; height: 1.35em; vertical-align: -0.28em; }
+.btn .ic { margin-right: 0.15em; }
+.card-close .ic, .join-close .ic, .al-close .ic, .tc-close .ic, #wait-cancel .ic { width: 1em; height: 1em; margin: 0; vertical-align: -0.12em; }

@@ -5,7 +5,7 @@ Einmalig einrichten:   pip install -r requirements-dev.txt && python -m playwrig
 Starten:               python -m unittest discover -s tests -v
 
 Startet selbst einen kleinen Webserver; prüft Laden ohne Fehler, Suche, Karte, Album,
-Sorten (gleich wie Python), Beispiel-Krabben, Gründer, Krabbentag, „Meine Krabbe“,
+Sorten (gleich wie Python), nur echte Krabben (keine Platzhalter), Gründer, Krabbentag, „Meine Krabbe“,
 Stern-Ablauf mit Enthüllung, Wachsen (Kinderstube, Neuheiten-Zahl), „Bewegung reduzieren“
 und den Umschalter Deutsch/Englisch.
 """
@@ -72,7 +72,9 @@ class BrowserTest(unittest.TestCase):
         errors = []
         page.on("pageerror", lambda e: errors.append(str(e)))
         page.on("console", lambda m: m.type == "error" and not any(s in m.text for s in IGNORE) and errors.append(m.text))
-        if crabs is not None:
+        if crabs is None:
+            crabs = real_crabs(40)  # feste Testdaten statt der echten crabs.json (die ändert sich laufend)
+        if crabs is not False:
             state = {"data": crabs}
             page.route("**/crabs.json*", lambda r: r.fulfill(status=200, content_type="application/json", body=json.dumps(state["data"])))
             page.crabs_state = state
@@ -157,15 +159,18 @@ class BrowserTest(unittest.TestCase):
         self.assertTrue(page2.evaluate("window.__introSkipped"))
 
     # ---------- Neue Funktionen ----------
-    def test_examples_fill_up(self):
+    def test_only_real_crabs(self):
+        """Keine Platzhalter: nur echte Krabben im Meer; ohne Sterne ein kurzer Hinweis."""
         page, errors = self.open(crabs=real_crabs(5))
         page.wait_for_timeout(500)
-        self.assertEqual(page.evaluate("__sea.crabs.size"), 30)
-        self.assertEqual(page.evaluate("[...__sea.crabs.values()].filter(c => c.data.example).length"), 25)
+        self.assertEqual(page.evaluate("__sea.crabs.size"), 5)
         self.assertEqual(page.text_content("#crab-count"), "5")
-        page.evaluate("__sea.focusCrab([...__sea.crabs.values()].find(c => c.data.example))")
-        page.wait_for_selector("#card.example:not(.hidden)", timeout=SLOW)
-        self.assertEqual(errors, [])
+        self.assertTrue(page.evaluate("document.getElementById('demo-banner').classList.contains('hidden')"))
+        empty, errors2 = self.open(crabs={"updated": "2026-01-01T00:00:00Z", "crabs": []})
+        empty.wait_for_timeout(500)
+        self.assertEqual(empty.evaluate("__sea.crabs.size"), 0)
+        self.assertFalse(empty.evaluate("document.getElementById('demo-banner').classList.contains('hidden')"))
+        self.assertEqual(errors + errors2, [])
 
     def test_founders_and_birthday(self):
         page, _ = self.open("?keineHinweise&datum=2027-01-01", crabs=real_crabs(3))
@@ -217,7 +222,7 @@ class BrowserTest(unittest.TestCase):
         self.assertLess(page.evaluate("__sea.crabs.get(1).root.scale.x"), page.evaluate("__sea.crabs.get(4).root.scale.x"))
         page.evaluate("__sea.focusCrab(__sea.crabs.get(1))")
         page.wait_for_selector("#card:not(.hidden)")
-        self.assertIn("🔒", page.text_content("#card-hat"))
+        self.assertEqual(page.locator("#card-hat svg.ic-lock").count(), 1)  # Schloss-Icon statt Emoji
         self.assertIn("eingepackt", page.text_content("#card-variant"))
         self.assertIn("Baby", page.text_content("#card-grow"))
         page.evaluate("__sea.focusCrab(null)")

@@ -253,9 +253,9 @@ function sparkMaterial(color, rainbow) {
 
 /* ---------- Namensschild ---------- */
 const LABEL_H = 0.026;
-/** opts: special (Krabbe des Tages), mine (meine Krabbe), founder (Gründer), example (Beispiel-Krabbe) */
+/** opts: special (Krabbe des Tages), mine (meine Krabbe), founder (Gründer) */
 function makeLabel(login, color, opts = {}) {
-  const { special = false, mine = false, founder = false, example = false } = opts;
+  const { special = false, mine = false, founder = false } = opts;
   const c = document.createElement('canvas');
   const ctx = c.getContext('2d');
   const font = '800 40px Nunito, system-ui, sans-serif';
@@ -265,7 +265,7 @@ function makeLabel(login, color, opts = {}) {
   c.width = tw + pad * 2 + gem + 10 + flag;
   c.height = 64;
   ctx.font = font;
-  ctx.fillStyle = special ? '#fff7d6' : mine ? '#fff0f5' : example ? '#eef1f5' : '#ffffff';
+  ctx.fillStyle = special ? '#fff7d6' : mine ? '#fff0f5' : '#ffffff';
   ctx.strokeStyle = special ? '#f5b316' : mine ? '#ff5d8f' : color;
   ctx.lineWidth = special || mine ? 7 : 5;
   ctx.beginPath();
@@ -302,7 +302,7 @@ function makeLabel(login, color, opts = {}) {
     ctx.fillRect(-7, -7, 14, 14);
   }
   ctx.restore();
-  ctx.fillStyle = example ? '#7d8796' : '#23324a';
+  ctx.fillStyle = '#23324a';
   ctx.textBaseline = 'middle';
   ctx.fillText(login, pad + gem + 10, c.height / 2 + 2);
   const tex = new THREE.CanvasTexture(c);
@@ -406,7 +406,7 @@ export class Crab {
     this.mine = false;
     this.shadowOn = true;
     this.buildHat();
-    this.label = makeLabel(data.login, data.example ? '#9aa5b4' : tier.color, this.labelOpts());
+    this.label = makeLabel(data.login, tier.color, this.labelOpts());
     this.label.position.y = this.labelY;
     this.root.add(this.label);
     this.labelOpacity = 0;
@@ -907,13 +907,13 @@ export class Crab {
   }
 
   labelOpts() {
-    return { special: this.special, mine: this.mine, founder: !!this.data.founder, example: !!this.data.example };
+    return { special: this.special, mine: this.mine, founder: !!this.data.founder };
   }
 
   /** Namensschild neu zeichnen (z. B. wenn sich "meine Krabbe" oder "Gründer" ändert). */
   refreshLabel() {
     const old = this.label;
-    this.label = makeLabel(this.data.login, this.data.example ? '#9aa5b4' : this.tier.color, this.labelOpts());
+    this.label = makeLabel(this.data.login, this.tier.color, this.labelOpts());
     this.label.position.y = this.labelY;
     this.label.material.opacity = old.material.opacity;
     this.label.visible = old.visible;
@@ -948,7 +948,7 @@ export class Crab {
     if (on === this.special) return;
     this.special = on;
     const old = this.label;
-    this.label = makeLabel(this.data.login, this.data.example ? '#9aa5b4' : this.tier.color, this.labelOpts());
+    this.label = makeLabel(this.data.login, this.tier.color, this.labelOpts());
     this.label.position.y = this.labelY;
     this.label.material.opacity = old.material.opacity;
     this.label.visible = old.visible;

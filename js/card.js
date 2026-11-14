@@ -1,6 +1,16 @@
 import * as THREE from 'three';
 import { mulberry32, hashString } from './util.js';
-import { t as tr } from './lang.js';
+import { t as tr, plain, icon, iconPaths } from './lang.js';
+
+/** Icon aus dem gemeinsamen Icon-Satz auf eine Zeichenfläche malen (x/y = linke obere Ecke). */
+function drawIcon(ctx, name, x, y, size, color, fill = false) {
+  ctx.save();
+  ctx.translate(x, y); ctx.scale(size / 24, size / 24);
+  ctx.lineWidth = 2.2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = color; ctx.fillStyle = color;
+  for (const d of iconPaths[name] || []) { const p = new Path2D(d); if (fill) ctx.fill(p); else ctx.stroke(p); }
+  ctx.restore();
+}
 
 /*
  * Sammelkarte zum Teilen: eigene Karte im Stil eines Trading-Card-Games.
@@ -210,7 +220,10 @@ export function drawCard(info) {
     ctx.fillStyle = 'rgba(255,255,255,0.94)'; rr(ctx, -96, -32, 192, 64, 12); ctx.fill();
     ctx.strokeStyle = '#3b82c4'; ctx.lineWidth = 4; rr(ctx, -90, -26, 180, 52, 9); ctx.stroke();
     ctx.fillStyle = '#2f6fa8'; ctx.textAlign = 'center';
-    ctx.font = '900 18px Nunito, system-ui, sans-serif'; ctx.fillText(`🐣 ${(info.stageName || 'Baby').toUpperCase()}`, 0, -7);
+    ctx.font = '900 18px Nunito, system-ui, sans-serif';
+    const stg = (info.stageName || 'Baby').toUpperCase(), sw = ctx.measureText(stg).width;
+    drawIcon(ctx, 'hatch', -(sw + 26) / 2, -27, 22, '#2f6fa8');
+    ctx.fillText(stg, 13, -7);
     ctx.font = '800 14px Nunito, system-ui, sans-serif'; ctx.fillText(tr('tc.hatIn', { until: info.unlockIn }), 0, 13);
     ctx.restore(); ctx.textAlign = 'left';
   }
@@ -222,7 +235,9 @@ export function drawCard(info) {
   ctx.fillStyle = '#16213a'; ctx.font = '900 26px Nunito, system-ui, sans-serif';
   ctx.fillText(tier.name, 100, by + 27);
   ctx.textAlign = 'right'; ctx.font = '800 22px Nunito, system-ui, sans-serif';
-  ctx.fillText(info.locked ? tr('tc.hatLocked') : tr('tc.hat', { hat: hatName }), CW - 66, by + 27);
+  const hatLine = info.locked ? plain('tc.hatLocked') : plain('tc.hat', { hat: hatName });
+  ctx.fillText(hatLine, CW - 66, by + 27);
+  if (info.locked) drawIcon(ctx, 'lock', CW - 66 - ctx.measureText(hatLine).width - 28, by + 6, 22, '#16213a');
   ctx.textAlign = 'left';
 
   // Werte
@@ -249,7 +264,7 @@ export function drawCard(info) {
 
   // Fußzeile
   ctx.fillStyle = '#8a7a5a'; ctx.font = 'italic 600 16px Nunito, system-ui, sans-serif';
-  const flavor = info.birthdayYears ? tr('tc.birthday', { n: info.birthdayYears }) : tr('tc.flavor', { text: cd.flavor });
+  const flavor = info.birthdayYears ? plain('tc.birthday', { n: info.birthdayYears }) : plain('tc.flavor', { text: cd.flavor });
   wrap(ctx, flavor, 48, CH - 84, CW - 96, 19);
   ctx.fillStyle = '#6f7f99';
   const foot = tr('tc.foot', { n: d.number ?? '?', since }) + (variantText ? ` · ${variantText}` : '');
@@ -258,8 +273,9 @@ export function drawCard(info) {
   // Adresse, damit ein geteiltes Bild zurück ins Meer führt
   const short = (info.url || '').replace(/^https?:\/\//, '').replace(/#.*$/, '').replace(/\/$/, '');
   ctx.fillStyle = '#de7856';
-  fitText(ctx, `★ ${short || 'Stargazer Sea'}`, CW - 96, 16, 900);
-  ctx.fillText(`★ ${short || 'Stargazer Sea'}`, 48, CH - 30);
+  fitText(ctx, short || 'Stargazer Sea', CW - 120, 16, 900);
+  drawIcon(ctx, 'star', 46, CH - 46, 18, '#de7856', true);
+  ctx.fillText(short || 'Stargazer Sea', 70, CH - 30);
   if (crabOfDay) {
     ctx.save(); ctx.translate(CW - 92, 150); ctx.rotate(0.25);
     ctx.fillStyle = '#ffcf3f'; starPath(ctx, 0, 0, 52, 26); ctx.fill();
@@ -320,7 +336,7 @@ export function openTradingCard(info) {
         <button class="btn tc-save">${tr('tc.save')}</button>
         ${info.onShow ? `<button class="btn tc-show">${tr('tc.show')}</button>` : ''}
       </div>
-      <button class="tc-close" aria-label="${tr('close')}">✕</button>
+      <button class="tc-close" aria-label="${tr('close')}">${icon('x')}</button>
     </div>`;
   el.querySelector('.tc-card').appendChild(canvasEl);
   document.body.appendChild(el);
