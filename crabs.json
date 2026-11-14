@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-13T14:34:05Z",
+  "updated": "2026-11-14T19:42:23Z",
   "crabs": [
     {
       "id": 169840624,
@@ -22,6 +22,17 @@
       "pattern": 1,
       "hue": 7,
       "sealed": "soUGxTy9MQxvEyIwWCBEC9aNLX5Qzh79udpwKZT_R2YJGSsEo5PhdcNbYz7ZELnz"
+    },
+    {
+      "id": 183513325,
+      "login": "Ottooris",
+      "rarity": "rare",
+      "firstStarredAt": "2026-11-14T19:42:13Z",
+      "starred": true,
+      "shell": 0,
+      "pattern": 0,
+      "hue": 0,
+      "sealed": "pwAprfuanjV-m0j_evx2DGi1fvYjmx6QEvtP-CJCEvdFBkbEx8Wqc8wybL1zxLkA"
     }
   ]
 }
