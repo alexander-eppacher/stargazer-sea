@@ -9,6 +9,7 @@ const f = (x) => (Number.isInteger(x) ? x.toFixed(1) : String(x));
 
 /** Kachelbares Wasser-Kaustik-Muster. */
 export const CAUSTIC_GLSL = /* glsl */ `
+float nz(float x) { return abs(x) < 1e-4 ? 1e-4 : x; } // nie durch 0 teilen
 float causticRaw(vec2 uv, float time) {
   vec2 p = mod(uv * 6.28318, 6.28318) - 250.0;
   vec2 i = p;
@@ -17,7 +18,7 @@ float causticRaw(vec2 uv, float time) {
   for (int n = 0; n < 4; n++) {
     float t = time * (1.0 - (3.5 / float(n + 1)));
     i = p + vec2(cos(t - i.x) + sin(t + i.y), sin(t - i.y) + cos(t + i.x));
-    c += 1.0 / length(vec2(p.x / (sin(i.x + t) / inten), p.y / (cos(i.y + t) / inten)));
+    c += 1.0 / max(length(vec2(p.x / nz(sin(i.x + t) / inten), p.y / nz(cos(i.y + t) / inten))), 1e-4);
   }
   c /= 4.0;
   c = 1.17 - pow(c, 1.4);

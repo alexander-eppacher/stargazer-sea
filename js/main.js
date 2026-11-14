@@ -91,20 +91,28 @@ sun.shadow.normalBias = 0.03;
 sun.shadow.radius = 4;
 scene.add(sun);
 
-// Kantenglättung (MSAA) im HDR-Zwischenbild: AMD-Grafik unter Windows (Direct3D) zeichnet damit
-// nur einen Teil des Bildes, der Rest bleibt schwarz → dort ohne MSAA. Testen: ?msaa=0 bzw. ?msaa=1
 const gpuName = (() => {
   try {
     const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info');
     return String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER) || '');
   } catch { return ''; }
 })();
-const msaaBroken = /AMD|Radeon|ATI /i.test(gpuName) && /Direct3D|D3D/i.test(gpuName);
-const msaa = params.has('msaa') ? params.get('msaa') !== '0' : !lowEnd && !msaaBroken;
-const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: msaa ? 4 : 0 });
+// Zwischenbilder des Composers: 8 Bit im sRGB-Format (SRGB8_ALPHA8). HalfFloat-Zwischenbilder haben auf
+// manchen Geräten (z. B. AMD-Grafik unter Windows in Brave) große Teile des Bildes schwarz gelassen,
+// und der Grafikkarten-Name ist dort nicht lesbar. sRGB-8-Bit vermeidet Farbstufen in dunklen Verläufen;
+// die Passes lesen und schreiben trotzdem linear (die Grafikkarte wandelt selbst um).
+// Schalter zum Testen: ?hdr=1 (HalfFloat wie früher)  ?msaa=0  ?fx=0 (ohne Composer)  ?diag=1
+const SW = { hdr: params.get('hdr') === '1', fx: params.get('fx') !== '0' };
+const activeSwitches = ['hdr', 'msaa', 'fx', 'diag'].filter((k) => params.has(k)).map((k) => `${k}=${params.get(k)}`);
+const msaa = params.has('msaa') ? params.get('msaa') !== '0' : !lowEnd;
+const rt = new THREE.WebGLRenderTarget(1, 1, { type: SW.hdr ? THREE.HalfFloatType : THREE.UnsignedByteType, samples: msaa ? 4 : 0 });
+if (!SW.hdr) rt.texture.colorSpace = THREE.SRGBColorSpace;
 const composer = new EffectComposer(renderer, rt);
+try { localStorage.removeItem('stargazer.msaa'); } catch { /* alter Merker der früheren Selbstprüfung */ }
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.22, 0.35, 1.0);
+// Schwelle unter 1.0: in 8-Bit-Zwischenbildern kommt nichts mehr über 1.0 (die internen Bloom-Ziele sind in three HalfFloat)
+const BLOOM_T = SW.hdr ? 1.0 : 0.88;
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.22, 0.35, BLOOM_T);
 composer.addPass(bloom);
 // Unterwasser-Look: leichte Wellen-Verzerrung, Blaugrün-Tönung, Vignette
 const underwater = new ShaderPass({
@@ -130,7 +138,8 @@ const underwater = new ShaderPass({
       float vig = 1.0 - dot(q, q) * 0.9;
       c *= mix(0.86 - uNight * 0.24, 1.0, smoothstep(0.0, 1.0, vig));
       c *= mix(vec3(1.0), vec3(0.82, 0.92, 1.12), uNight); // nachts kühler
-      gl_FragColor = vec4(c, 1.0);
+      // Sättigung oben kann Farbkanäle unter 0 drücken → später pow() im OutputPass = ungültiger Wert
+      gl_FragColor = vec4(max(c, 0.0), 1.0);
     }`,
 });
 composer.addPass(underwater);
@@ -198,14 +207,26 @@ function pointScale() {
 }
 setPointScale(pointScale());
 
+/** Diagnose: Zeichenfläche und Composer-Ziele müssen gleich groß sein, sonst Warnung. */
+function checkSizes(where) {
+  const db = renderer.getDrawingBufferSize(new THREE.Vector2());
+  const a = composer.renderTarget1, b = composer.renderTarget2;
+  if (a.width !== db.x || a.height !== db.y || b.width !== db.x || b.height !== db.y) {
+    console.warn(`[Stargazer Sea] Größen passen nicht (${where}): Zeichenfläche ${db.x}×${db.y}, rt1 ${a.width}×${a.height}, rt2 ${b.width}×${b.height}`);
+  }
+}
 function resize() {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setPixelRatio(maxPixelRatio);
   renderer.setSize(innerWidth, innerHeight, false);
-  composer.setSize(innerWidth, innerHeight);
-  composer.setPixelRatio(renderer.getPixelRatio());
+  // Composer in ganzen Pixeln, genau so groß wie die Zeichenfläche (der Renderer rundet ab, CSS × Pixelverhältnis nicht)
+  const db = renderer.getDrawingBufferSize(new THREE.Vector2());
+  composer.setPixelRatio(1);
+  composer.setSize(db.x, db.y);
+  // Bewusst: Bloom in CSS-Größe statt Pixelgröße. Das ist günstiger, und der weiche Look ist so abgestimmt.
   bloom.setSize(innerWidth, innerHeight);
+  checkSizes('resize');
   ocean.resize();
   setPointScale(pointScale());
 }
@@ -228,7 +249,7 @@ function applyEnv() {
   sun.color.copy(SUN_DAY).lerp(MOON, night).lerp(SUN_DUSK, dusk * 0.45);
   renderer.toneMappingExposure = 1.0 - night * 0.1;
   bloom.strength = 0.22 + night * 0.4;
-  bloom.threshold = 1.0 - night * 0.25;
+  bloom.threshold = BLOOM_T - night * 0.25;
   underwater.uniforms.uNight.value = night;
   ocean.setEnv(night, dusk);
   document.documentElement.dataset.night = night > 0.5 ? '1' : '0';
@@ -1461,7 +1482,7 @@ function frame() {
   if (camera.position.y < minY) camera.position.y = minY;
   if (camera.position.y > WORLD.surfaceY - 4 && !fly?.intro) camera.position.y = WORLD.surfaceY - 4;
 
-  composer.render(dt);
+  if (SW.fx) composer.render(dt); else renderer.render(scene, camera);
 
   if (first) {
     first = false;
@@ -1569,13 +1590,47 @@ function openHashCrab() {
   return !!data;
 }
 
+/** Diagnose: alle Größen und Einstellungen; wird ausgegeben und in die Zwischenablage kopiert. */
+async function diag() {
+  const db = renderer.getDrawingBufferSize(new THREE.Vector2());
+  const t = (x) => x && { w: x.width, h: x.height, samples: x.samples, colorSpace: x.texture.colorSpace || 'linear', type: x.texture.type === THREE.HalfFloatType ? 'HalfFloat' : x.texture.type === THREE.UnsignedByteType ? 'UnsignedByte' : String(x.texture.type) };
+  const d = {
+    gpuName, userAgent: navigator.userAgent, devicePixelRatio, inner: `${innerWidth}×${innerHeight}`,
+    rendererPixelRatio: renderer.getPixelRatio(), drawingBuffer: `${db.x}×${db.y}`,
+    canvasCss: `${canvas.clientWidth}×${canvas.clientHeight}`,
+    composerSize: `${composer._width}×${composer._height} @${composer._pixelRatio}`,
+    rt1: t(composer.renderTarget1), rt2: t(composer.renderTarget2),
+    bloom: { inChain: composer.passes.includes(bloom), enabled: bloom.enabled, bright: t(bloom.renderTargetBright), mips: bloom.renderTargetsHorizontal.map((x) => `${x.width}×${x.height}`) },
+    qualityLevel: quality.level, msaa, switches: activeSwitches.join(' ') || 'keine',
+  };
+  const text = JSON.stringify(d, null, 2);
+  console.log(text);
+  try { await navigator.clipboard.writeText(text); } catch {
+    try { const ta = Object.assign(document.createElement('textarea'), { value: text }); document.body.append(ta); ta.select(); document.execCommand('copy'); ta.remove(); } catch { /* egal */ }
+  }
+  return d;
+}
+// ?diag=1: Diagnose als Kasten anzeigen (für Handys ohne Konsole)
+if (params.get('diag') === '1') {
+  setTimeout(async () => {
+    const d = await diag();
+    const box = document.createElement('div');
+    box.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;max-height:55vh;overflow:auto;z-index:9999;background:#fffdf5;color:#222;font:11px/1.35 monospace;padding:10px;border-radius:10px;box-shadow:0 4px 18px rgba(0,0,0,.35);white-space:pre-wrap';
+    const btn = Object.assign(document.createElement('button'), { textContent: 'Kopieren' });
+    btn.style.cssText = 'float:right;font:600 13px system-ui;padding:6px 12px;margin:0 0 6px 8px';
+    btn.onclick = async () => { await diag(); btn.textContent = 'Kopiert ✓'; };
+    box.append(btn, JSON.stringify(d, null, 2));
+    document.body.append(box);
+  }, 6000);
+}
+
 window.__sea = {
   crabs, camera, controls, focusCrab, scene, renderer, sync: syncCrabs, ocean, quality, sound,
   get crabOfDay() { return crabOfDay; }, get reduced() { return REDUCED; }, get selected() { return selected; }, openChest, chooseLabels,
   albumOpen, albumGo, closeAlbum, season: SEASON, get night() { return ctx.night; }, setHour(h) { forcedHour = h; applyEnv(); },
   inRoomZone, makeRoom, tradingCardOpen, closeTradingCard,
   setMine, mineCrab, startWaiting, stopWaiting, reveal, openJoin, get waitFor() { return waitFor; }, get coachStep() { return coachStep; },
-  get fly() { return fly; }, msaa, gpuName, today, birthdayYears, growth, checkGrowth, albumNews,
+  get fly() { return fly; }, msaa, gpuName, diag, today, birthdayYears, growth, checkGrowth, albumNews,
   /** Zeit vorspulen (Stunden) und sofort wachsen lassen – für Tests und zum Ausprobieren. */
   skipTime(hours) { timeShift += hours * 3_600_000; checkGrowth(); },
   skip() {

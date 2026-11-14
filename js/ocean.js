@@ -1049,7 +1049,7 @@ export class Bubbles {
         attribute float aSize; attribute float aAlpha; uniform float uScale; varying float vA;
         void main() {
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = aSize * uScale / -mv.z;
+          gl_PointSize = aSize * uScale / max(-mv.z, 0.01);
           vA = aAlpha;
           gl_Position = projectionMatrix * mv;
         }`,
@@ -1125,8 +1125,9 @@ function buildSnow(scene, rng, renderer, camera, nightU = { value: 0 }, winterU 
         p.z += cos(uTime * 0.2 + aSpeed * 30.0) * 0.8;
         p.xz = uCam.xz + mod(p.xz - uCam.xz + 50.0, 100.0) - 50.0;
         vec4 mv = modelViewMatrix * vec4(p, 1.0);
-        gl_PointSize = (0.05 + aSpeed * 0.05) * (1.0 + uWinter * 1.8) * uScale / -mv.z;
-        vA = exp(-pow(-mv.z * 0.03, 2.0)) * (0.7 + uWinter * 0.3);
+        gl_PointSize = (0.05 + aSpeed * 0.05) * (1.0 + uWinter * 1.8) * uScale / max(-mv.z, 0.01);
+        float dz = -mv.z * 0.03;
+        vA = exp(-dz * dz) * (0.7 + uWinter * 0.3); // statt pow mit möglicher negativer Basis
         gl_Position = projectionMatrix * mv;
       }`,
     fragmentShader: /* glsl */ `

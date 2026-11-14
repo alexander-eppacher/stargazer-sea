@@ -126,7 +126,8 @@ function res() {
         vUv = uv;
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
         vec3 n = normalize(normalMatrix * normal);
-        vF = abs(dot(n, normalize(-mv.xyz)));
+        vec3 v = -mv.xyz;
+        vF = abs(dot(n, v * inversesqrt(max(dot(v, v), 1e-8)))); // kein normalize eines Nullvektors
         gl_Position = projectionMatrix * mv;
       }`,
     fragmentShader: /* glsl */ `
@@ -230,7 +231,7 @@ function sparkMaterial(color, rainbow) {
         vA = sin(life * 3.14159);
         vPh = aPh;
         vec4 mv = modelViewMatrix * vec4(p, 1.0);
-        gl_PointSize = (0.1 + 0.08 * vA) * uScale / -mv.z;
+        gl_PointSize = (0.1 + 0.08 * vA) * uScale / max(-mv.z, 0.01);
         gl_Position = projectionMatrix * mv;
       }`,
     fragmentShader: /* glsl */ `
