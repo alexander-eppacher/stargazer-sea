@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-15T14:51:56Z",
+  "updated": "2026-11-17T02:32:01Z",
   "crabs": [
     {
       "id": 169840624,
@@ -25,10 +25,8 @@
       "rarity": "rare",
       "firstStarredAt": "2026-11-14T19:42:13Z",
       "starred": true,
-      "shell": 0,
-      "pattern": 0,
-      "hue": 0,
-      "sealed": "pwAprfuanjV-m0j_evx2DGi1fvYjmx6QEvtP-CJCEvdFBkbEx8Wqc8wybL1zxLkA"
+      "variant": 1,
+      "hat": "tophat"
     },
     {
       "id": 95478629,
@@ -36,10 +34,8 @@
       "rarity": "common",
       "firstStarredAt": "2026-11-14T20:25:57Z",
       "starred": true,
-      "shell": 0,
-      "pattern": 4,
-      "hue": 7,
-      "sealed": "SXcAqY0HQqdADUzRWRm8baFI3qjVgY4OnZ6Z7fFHn_NMiqhwSg9U_KUDfCw6YLJ1"
+      "variant": 2,
+      "hat": "none"
     }
   ]
 }
