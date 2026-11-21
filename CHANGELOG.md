@@ -2,6 +2,12 @@
 
 Alle sichtbaren Änderungen an Stargazer Sea, die neuesten oben.
 
+## 2026-11-21
+
+### Behoben
+- **Falsche Fehlermeldung in Brave am iPhone** („window.ethereum…“): Fehler aus Skripten, die der Browser
+  selbst einschleust, zeigen keine Meldung mehr.
+
 ## 2026-11-14
 
 ### Neu

@@ -217,10 +217,13 @@
       window.addEventListener('error', function (e) {
         // Nur Fehler aus unseren eigenen Dateien zählen. Fremde Skripte (z. B. die Werbeblocker von
         // Brave auf dem iPad) melden nur „Script error.“ ohne Datei – die dürfen die Seite nicht stoppen.
-        if (!e.filename || e.filename.indexOf(location.origin + '/') !== 0) return;
+        if (!e.filename || e.filename.indexOf(location.origin + '/js/') !== 0) return;
         fail(I18N.t('err.dive') + '<br><code style="color:#ff9b9b">' + (e.message || e) + '</code>');
       });
       window.addEventListener('unhandledrejection', function (e) {
+        // auch hier: Fehler mit Herkunft, die nicht aus unseren Dateien kommen, ignorieren
+        var st = e.reason && e.reason.stack;
+        if (st && st.indexOf(location.origin + '/') < 0) return;
         fail(I18N.t('err.dive') + '<br><code style="color:#ff9b9b">' + ((e.reason && e.reason.message) || e.reason) + '</code>');
       });
       setTimeout(function () {
