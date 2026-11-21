@@ -11,6 +11,8 @@ Alle sichtbaren Änderungen an Stargazer Sea, die neuesten oben.
   - Die gewählte Neigung bleibt erhalten, auch wenn man kurz weit herauszoomt.
   - Krabben sind leichter zu treffen, Doppeltippen auf den Boden fliegt dorthin.
   - Neuer Knopf „Startansicht“ bringt die Kamera zurück; ein Hinweis erklärt die Gesten.
+- **Vorschaubild beim Teilen** (WhatsApp, Discord …) ist sechsmal kleiner und lädt schneller.
+- **Meeresrauschen am iPhone** lädt viermal schneller (2,4 MB → 0,6 MB), klingt gleich.
 
 ### Behoben
 - **Nichts steckt mehr ineinander:**
