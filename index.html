@@ -164,6 +164,7 @@
   </div>
 
   <div id="hint" data-i18n="hint">Ziehen = drehen · Scrollen = zoomen · Krabbe anklicken</div>
+  <button id="home-btn" class="btn icon-btn hidden" data-i18n-attr="title:home.title,aria-label:home.title" title="Startansicht" aria-label="Startansicht"><span data-ic="home"></span></button>
 
   <script>
     // Statt endlos "Tauche ab..." eine verständliche Meldung zeigen
@@ -231,7 +232,10 @@
       }, 25000);
     })();
   </script>
-  <script>I18N.apply();</script>
+  <script>
+    if (matchMedia('(pointer: coarse)').matches) document.getElementById('hint').setAttribute('data-i18n', 'hint.touch');
+    I18N.apply();
+  </script>
   <script src="config.js"></script>
   <script type="module" src="js/main.js"></script>
 </body>

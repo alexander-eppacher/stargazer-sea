@@ -4,6 +4,14 @@ Alle sichtbaren Änderungen an Stargazer Sea, die neuesten oben.
 
 ## 2026-11-21
 
+### Geändert
+- **Steuerung am Handy neu:**
+  - Wischen dreht oder neigt – je nach Richtung, nie beides zugleich; nach schnellem Wischen gleitet die Drehung aus.
+  - Zwei Finger zoomen und verschieben die Ansicht flach über die Insel, ohne Sprünge beim Loslassen.
+  - Die gewählte Neigung bleibt erhalten, auch wenn man kurz weit herauszoomt.
+  - Krabben sind leichter zu treffen, Doppeltippen auf den Boden fliegt dorthin.
+  - Neuer Knopf „Startansicht“ bringt die Kamera zurück; ein Hinweis erklärt die Gesten.
+
 ### Behoben
 - **Falsche Fehlermeldung in Brave am iPhone** („window.ethereum…“): Fehler aus Skripten, die der Browser
   selbst einschleust, zeigen keine Meldung mehr.

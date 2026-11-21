@@ -15,6 +15,7 @@ import { updateHatMaterials } from './hats.js';
 import { growthOf, newsBetween, timeLeft, untilText, STAGES, UNLOCK } from './growth.js';
 import { shared } from './shaders.js';
 import { t as tr, locale } from './lang.js';
+import { setupTouch, TOUCH } from './touch.js';
 import { mulberry32, hashString, range, pick, easeInOut, clamp } from './util.js';
 
 const $ = (id) => document.getElementById(id);
@@ -160,6 +161,35 @@ controls.screenSpacePanning = false;
 controls.zoomToCursor = true;
 controls.autoRotate = false;
 controls.enabled = false;
+// Handy: eigene Touch-Steuerung (siehe touch.js), Maus bleibt bei OrbitControls
+/** Erlaubte Neigung für einen Abstand r: Kamera über dem Boden und unter der Wasseroberfläche. */
+function polarLimits(r = camera.position.distanceTo(controls.target) || 1) {
+  const ty = controls.target.y;
+  const low = (heightAt(camera.position.x, camera.position.z) + 0.8 - ty) / r;
+  const high = (WORLD.surfaceY - 4 - ty) / r;
+  const hi = Math.min(POLAR_MAX, Math.acos(THREE.MathUtils.clamp(low, -1, 1)));
+  return [Math.min(hi, Math.max(POLAR_MIN, Math.acos(THREE.MathUtils.clamp(high, -1, 1)))), hi];
+}
+const touch = setupTouch({ canvas, camera, controls, reduced: () => REDUCED, limits: polarLimits });
+// Safari: Seite nicht per Zwei-Finger-Geste auf der Zeichenfläche zoomen
+for (const ev of ['gesturestart', 'gesturechange']) canvas.addEventListener(ev, (e) => e.preventDefault());
+
+// Knopf „Startansicht“ (Handy): erscheint, sobald die Kamera woanders ist, fliegt zurück
+const HOME_POS = new THREE.Vector3(0, 11, 34), HOME_TARGET = new THREE.Vector3(0, 1.4, 0);
+const COARSE = matchMedia('(pointer: coarse)').matches || params.has('touch');
+$('home-btn').addEventListener('click', () => {
+  if (selected) select(null);
+  fly = {
+    t: 0, dur: REDUCED ? 0.001 : TOUCH.HOME_FLY_S,
+    fromPos: camera.position.clone(), fromTarget: controls.target.clone(),
+    toTarget: HOME_TARGET.clone(), toPos: HOME_POS.clone(),
+  };
+});
+function updateHomeBtn() {
+  const away = COARSE && controls.enabled && !fly
+    && (camera.position.distanceTo(HOME_POS) > 1.5 || controls.target.distanceTo(HOME_TARGET) > 1);
+  $('home-btn').classList.toggle('hidden', !away);
+}
 
 let idleTimer = null;
 controls.addEventListener('start', () => {
@@ -865,18 +895,83 @@ function pickAt(e) {
   const hit = raycaster.intersectObjects(hitTargets, false).find((h) => h.object.parent.visible);
   return hit ? hit.object.userData.crab : null;
 }
-canvas.addEventListener('pointerdown', (e) => { downAt = { x: e.clientX, y: e.clientY }; });
+canvas.addEventListener('pointerdown', (e) => { downAt = { x: e.clientX, y: e.clientY, t: e.timeStamp }; });
+canvas.addEventListener('pointercancel', () => { downAt = null; });
 canvas.addEventListener('pointerup', (e) => {
   if (!downAt) return;
-  const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y);
+  const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y), held = e.timeStamp - downAt.t;
   downAt = null;
-  if (moved > 6) return;
+  const isTouch = e.pointerType === 'touch';
+  if (isTouch ? moved > TOUCH.TAP_PX || held > TOUCH.TAP_MS || touch.multi : moved > 6) return;
   if (fly?.intro) { fly.t = Math.max(fly.t, 1); return; } // Tippen überspringt den Tauchflug
-  const crab = pickAt(e);
-  if (crab) { focusCrab(crab); sound.bubble(1); return; }
-  if (hitChest(e)) { openChest(); return; }
+  const crab = pickAt(e) || (isTouch ? pickNear(e, TOUCH.TAP_NEAR_PX) : null);
+  if (crab) { lastTap = null; focusCrab(crab); sound.bubble(1); return; }
+  if (hitChest(e)) { lastTap = null; openChest(); return; }
+  if (isTouch && doubleTap(e)) return;
   if (selected) select(null);
 });
+
+/** Am Handy: nächste Krabbe im Umkreis (in Bildschirm-Pixeln), wenn der Finger keine direkt trifft. */
+const nearV = new THREE.Vector3();
+function pickNear(e, px) {
+  const r = canvas.getBoundingClientRect();
+  let best = null, bestD = px;
+  for (const c of crabs.values()) {
+    if (!c.root.visible) continue;
+    c.worldPos(nearV).y += 0.35 * c.growScale;
+    nearV.project(camera);
+    if (nearV.z > 1) continue;
+    const d = Math.hypot((nearV.x + 1) / 2 * r.width + r.left - e.clientX, (1 - nearV.y) / 2 * r.height + r.top - e.clientY);
+    if (d < bestD) { bestD = d; best = c; }
+  }
+  return best;
+}
+
+/** Punkt auf dem Meeresboden unter dem Finger (Strahl Schritt für Schritt bis unter den Boden). */
+function groundAt(e) {
+  const r = canvas.getBoundingClientRect();
+  pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(pointer, camera);
+  const o = raycaster.ray.origin, d = raycaster.ray.direction, p = new THREE.Vector3();
+  let prev = 0;
+  for (let s = 0.5; s < 160; s += 0.5) {
+    p.copy(o).addScaledVector(d, s);
+    if (p.y <= heightAt(p.x, p.z)) {
+      let a = prev, b = s;
+      for (let i = 0; i < 8; i++) {
+        const m = (a + b) / 2;
+        p.copy(o).addScaledVector(d, m);
+        if (p.y <= heightAt(p.x, p.z)) b = m; else a = m;
+      }
+      return p.copy(o).addScaledVector(d, b);
+    }
+    prev = s;
+  }
+  return null;
+}
+
+/** Doppeltippen auf freien Boden: dorthin fliegen, Abstand halbiert. */
+let lastTap = null;
+function doubleTap(e) {
+  const now = e.timeStamp, prev = lastTap;
+  lastTap = { x: e.clientX, y: e.clientY, t: now };
+  if (!prev || now - prev.t > TOUCH.DOUBLE_MS || Math.hypot(e.clientX - prev.x, e.clientY - prev.y) > TOUCH.DOUBLE_PX) return false;
+  lastTap = null;
+  const p = groundAt(e);
+  if (!p) return true;
+  const d = Math.hypot(p.x, p.z);
+  if (d > SEA_R) { p.x *= SEA_R / d; p.z *= SEA_R / d; }
+  p.y = heightAt(p.x, p.z) + 0.7;
+  const off = camera.position.clone().sub(controls.target);
+  off.setLength(THREE.MathUtils.clamp(off.length() / 2, controls.minDistance, controls.maxDistance));
+  if (selected) select(null);
+  fly = {
+    t: 0, dur: REDUCED ? 0.001 : TOUCH.DOUBLE_FLY_S,
+    fromPos: camera.position.clone(), fromTarget: controls.target.clone(),
+    toTarget: p, toPos: p.clone().add(off),
+  };
+  return true;
+}
 
 function hitChest(e) {
   const r = canvas.getBoundingClientRect();
@@ -1359,7 +1454,7 @@ function frame() {
     c.camDist = camera.position.distanceTo(c.root.position);
     c.setShadowLOD(c.camDist < shadowDist || c === selected);
   }
-  if (++labelFrame % 4 === 0) chooseLabels();
+  if (++labelFrame % 4 === 0) { chooseLabels(); updateHomeBtn(); }
   if (selected && (roomTimer -= dt) <= 0) { roomTimer = 0.4; makeRoom(); }
   for (const c of crabs.values()) c.updateLabel(dt);
   adaptQuality(rawDt);
@@ -1405,11 +1500,8 @@ function frame() {
   if (!fly) {
     // Boden und Wasseroberfläche gleich als Neigungsgrenze einrechnen – sonst drückt die
     // Korrektur unten die Kamera hoch und die Steuerung zieht sie wieder runter (Ruckeln)
-    const r = camera.position.distanceTo(controls.target) || 1, ty = controls.target.y;
-    const low = (heightAt(camera.position.x, camera.position.z) + 0.8 - ty) / r;
-    const high = (WORLD.surfaceY - 4 - ty) / r;
-    controls.maxPolarAngle = Math.min(POLAR_MAX, Math.acos(THREE.MathUtils.clamp(low, -1, 1)));
-    controls.minPolarAngle = Math.min(controls.maxPolarAngle, Math.max(POLAR_MIN, Math.acos(THREE.MathUtils.clamp(high, -1, 1))));
+    [controls.minPolarAngle, controls.maxPolarAngle] = polarLimits();
+    touch.update(dt);
     controls.update();
     keepInSea();
   }
@@ -1562,7 +1654,7 @@ if (params.get('diag') === '1') {
 }
 
 window.__sea = {
-  crabs, camera, controls, focusCrab, scene, renderer, sync: syncCrabs, ocean, quality, sound,
+  crabs, camera, controls, touch, focusCrab, scene, renderer, sync: syncCrabs, ocean, quality, sound,
   get crabOfDay() { return crabOfDay; }, get reduced() { return REDUCED; }, get selected() { return selected; }, openChest, chooseLabels,
   albumOpen, albumGo, closeAlbum, season: SEASON, get night() { return ctx.night; }, setHour(h) { forcedHour = h; applyEnv(); },
   inRoomZone, makeRoom, tradingCardOpen, closeTradingCard,

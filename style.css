@@ -915,3 +915,16 @@ body.intro-flying #newest, body.intro-flying #demo-banner, body.intro-flying #hi
 .icon-btn .ic { width: 1.35em; height: 1.35em; vertical-align: -0.28em; }
 .btn .ic { margin-right: 0.15em; }
 .card-close .ic, .join-close .ic, .al-close .ic, .tc-close .ic, #wait-cancel .ic { width: 1em; height: 1em; margin: 0; vertical-align: -0.12em; }
+
+/* ---------- Handy: Hinweis zu den Gesten, Knopf „Startansicht“ ---------- */
+html, body { overscroll-behavior: none; } /* kein Herunterziehen zum Neuladen */
+#sea { touch-action: none; }
+@media (pointer: coarse) {
+  #hint { display: block; white-space: normal; text-align: center; width: max-content; max-width: calc(100vw - 32px); }
+}
+@media (pointer: coarse) and (max-width: 760px) {
+  #hint { bottom: auto; top: 146px; padding: 6px 12px; border-radius: 12px; background: rgba(255, 250, 238, 0.88); line-height: 1.4; }
+}
+#home-btn { position: fixed; left: 16px; top: 104px; height: 44px; z-index: 5; display: flex; align-items: center; justify-content: center; }
+@media (max-width: 760px) { #home-btn { left: auto; right: 16px; top: 98px; } }
+body.intro-flying #home-btn { display: none; }

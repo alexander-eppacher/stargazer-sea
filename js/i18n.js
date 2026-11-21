@@ -105,6 +105,8 @@
       'season.witch': 'Hexenhut',
       'demo.banner': 'Noch keine Sterne – gib den ersten, dann zieht deine Krabbe hier ein.',
       'hint': 'Ziehen = drehen · Scrollen = zoomen · Krabbe anklicken',
+      'home.title': 'Startansicht',
+      'hint.touch': 'Wischen = drehen · Zwei Finger = zoomen & schieben · Krabbe antippen',
 
       // Stern-Ablauf
       'join.title': 'Jeder Stern wird zur Krabbe',
@@ -320,6 +322,8 @@
       'season.witch': 'Witch hat',
       'demo.banner': 'No stars yet – give the first one and your crab moves in.',
       'hint': 'Drag = rotate · Scroll = zoom · Click a crab',
+      'home.title': 'Start view',
+      'hint.touch': 'Swipe = rotate · Two fingers = zoom & move · Tap a crab',
 
       'join.title': 'Every star becomes a crab',
       'join.star': 'Give a star',
@@ -500,6 +504,7 @@
     pointer: ['M9 12V4.5a1.5 1.5 0 0 1 3 0V10M12 9.5a1.5 1.5 0 0 1 3 0V11M15 10.5a1.5 1.5 0 0 1 3 0V15a5.5 5.5 0 0 1-5.5 5.5h-1A5 5 0 0 1 7.2 18L5 14.5a1.5 1.5 0 0 1 2.5-1.6L9 14.5'],
     link: ['M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1', 'M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1'],
     save: ['M12 4v11M7.5 10.5L12 15l4.5-4.5', 'M5 19.5h14'],
+    home: ['M4 11.5L12 5l8 6.5', 'M6.5 9.8V19h11V9.8', 'M10 19v-5h4v5'],
     pin: ['M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z', 'M12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z'],
   };
   function icon(name) {
