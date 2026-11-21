@@ -441,7 +441,8 @@ export function buildTown(scene, rng, { heightAt, obstacles, env, camera }) {
   const teapot = place(teapotHouse(), 31, -14.5, 1.9, { turn: -0.25 });
   place(sardineTrailer(), -32, -6, 2.0, { turn: 1.2 });
   place(bootHouse(), -31, 15, 1.7, { turn: -0.2 });
-  for (const [x, z, c] of [[28.6, -12.4, 0xf28aa8], [-29.4, -4.6, 0x2fae8f], [-28.6, 13.4, 0xe2574c]]) {
+  const mailboxes = [[28.6, -12.4, 0xf28aa8], [-29.4, -4.6, 0x2fae8f], [-28.6, 13.4, 0xe2574c]];
+  for (const [x, z, c] of mailboxes) {
     const { geo } = vox(mailbox(c), U);
     const m = new THREE.Mesh(geo, mat);
     m.castShadow = true;
@@ -601,5 +602,5 @@ export function buildTown(scene, rng, { heightAt, obstacles, env, camera }) {
       lineGeo.attributes.position.needsUpdate = true;
     }
   });
-  return { update: (dt, time) => { for (const u of updaters) u(dt, time); }, vents, mat, glowMat, constellation, boardMesh, drawBoard };
+  return { update: (dt, time) => { for (const u of updaters) u(dt, time); }, vents, mat, glowMat, constellation, boardMesh, drawBoard, mailboxes };
 }

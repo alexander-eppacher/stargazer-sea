@@ -255,10 +255,26 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
   updaters.push(chest.update);
 
   /* ---------- Krabbenstadt am hinteren Inselrand ---------- */
+  const townStart = obstacles.length, sceneStart = scene.children.length;
   const town = buildTown(scene, mulberry32(4711), { heightAt, obstacles, env, camera });
   updaters.push(town.update);
   // Plätze für Blubberbad & Spielplatz schon jetzt reservieren (kein Gras/Korallen darin)
   for (const [x, z, r] of Object.values(PLACE_SPOTS)) obstacles.push({ x, z, r });
+
+  /* ---------- Nichts soll ineinander stecken ----------
+     Feste Dinge merken (x, z, Radius, Höhe). Deko, die hineinragen würde, wird nur ausgeblendet –
+     gewürfelt wird trotzdem gleich, damit sich der Rest der Insel nicht verschiebt. */
+  const solids = [];
+  const blocked = (x, z, r, k = 0.9, soft = true) =>
+    solids.some((o) => (soft || !o.soft) && Math.hypot(o.x - x, o.z - z) < (o.r + r) * k);
+  const onStreet = (x, z) => {
+    const d = Math.hypot(x, z), a = (Math.atan2(z, x) * 180) / Math.PI;
+    return d > 30.9 && d < 34.3 && a > -127.5 && a < -76.5;
+  };
+  for (const o of obstacles.slice(townStart)) solids.push({ x: o.x, z: o.z, r: o.r });
+  for (const [x, z] of town.mailboxes) solids.push({ x, z, r: 0.4 });
+  // später gebaute feste Dinge: Anker, Wegweiser, Riesenmuschel, Sandbank mit Wrack, Truhe
+  for (const [x, z, r] of [[17.5, 7, 1.0], [-8.5, 15.5, 0.7], [8.5, 13.5, 1.5], [30, -30, 7.6], [0, 0, 1.6]]) solids.push({ x, z, r });
 
   /* ---------- Krabbenwiese ausdünnen (Radius ≤ 29, freier Kreis um die Truhe) ---------- */
   // Weggelassenes wird trotzdem „gewürfelt“, damit alles danach (z. B. die Korallen auf den
@@ -298,13 +314,19 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
     const sp = spot(6, 34, s + 0.3);
     if (!sp) continue;
     const keep = !inMeadow(sp.x, sp.z) || keepRock();     // in der Wiese nur jeder dritte Stein
-    rock(sp.x, sp.z, s, 0.75, keep);
-    if (s > 0.6) (keep ? obstacles : ghosts).push({ x: sp.x, z: sp.z, r: s * 0.9 });
+    const show = keep && !blocked(sp.x, sp.z, s * 1.1);
+    rock(sp.x, sp.z, s, 0.75, show);
+    if (show) solids.push({ x: sp.x, z: sp.z, r: s * 1.1, top: s * 0.75 });
+    // pad: Steine sind breiter als ihr Platz – Krabben halten etwas mehr Abstand
+    if (s > 0.6) (keep ? obstacles : ghosts).push({ x: sp.x, z: sp.z, r: s * 0.9, pad: s * 0.3 });
     if (!keep && s > 0.6) obstacles.push(ghosts[ghosts.length - 1]);
   }
   for (let i = 0; i < 26; i++) {
     const a = rng() * Math.PI * 2, d = range(rng, 44, 62);
-    rock(Math.cos(a) * d, Math.sin(a) * d, range(rng, 2, 5), range(rng, 0.6, 1.1));
+    const x = Math.cos(a) * d, z = Math.sin(a) * d, size = range(rng, 2, 5), sy = range(rng, 0.6, 1.1);
+    const show = !blocked(x, z, size * 1.05, 0.75); // große Felsen dürfen sich leicht berühren
+    rock(x, z, size, sy, show);
+    if (show) solids.push({ x, z, r: size * 1.1, top: size * sy });
   }
   const rockMesh = new THREE.Mesh(
     mergeAll(rockGeos, ['position', 'normal', 'color', 'uv']),
@@ -324,6 +346,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
     m.castShadow = m.receiveShadow = true;
     scene.add(m);
     obstacles.push({ x: sp.x, z: sp.z, r: 0.9 });
+    solids.push({ x: sp.x, z: sp.z, r: 0.8, top: 1.6 });
     vents.push(new THREE.Vector3(sp.x, y0 + 1.6, sp.z));
   }
 
@@ -372,16 +395,22 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
       if (rc.plateau) plateauCorals.push({ x, z });
       const type = pick(rng, ['branch', 'branch', 'branch', 'fan', 'fan', 'tube', 'tube', 'anemone', 'mound', 'mound']);
       const s = range(rng, 0.8, 1.3);
-      let r = 0.8 * s;
-      if (type === 'branch') { addCut('branch', x, z, 2.2 * s, { planes: 3, sway: 0.06, segY: 3 }); r = 0.9 * s; }
-      else if (type === 'fan') { addCut('fan', x, z, 2.4 * s, { planes: 2, sway: 0.1, segY: 3 }); }
-      else if (type === 'tube') { addCut('tube', x, z, 1.6 * s); r = 0.7 * s; }
+      // halbe Breite des Aufstellers: ragt er in etwas hinein, wird er nur nicht gebaut
+      const rv = { branch: 0.94, fan: 1.02, tube: 0.64, anemone: 0.68, mound: 0.9 }[type] * s;
+      const clusterDry = dry;
+      if (blocked(x, z, rv)) dry = true;
+      let r = 0.8 * s, h = 0.7 * s;
+      if (type === 'branch') { h = addCut('branch', x, z, 2.2 * s, { planes: 3, sway: 0.06, segY: 3 }); r = 0.9 * s; }
+      else if (type === 'fan') { h = addCut('fan', x, z, 2.4 * s, { planes: 2, sway: 0.1, segY: 3 }); }
+      else if (type === 'tube') { h = addCut('tube', x, z, 1.6 * s); r = 0.7 * s; }
       else if (type === 'anemone') {
-        const h = addCut('anemone', x, z, 1.7 * s, { planes: 3, sway: 0.12, speed: 1.8, segY: 3 });
+        h = addCut('anemone', x, z, 1.7 * s, { planes: 3, sway: 0.12, speed: 1.8, segY: 3 });
         if (!dry) reefAnemones.push({ x, y: heightAt(x, z) + h * 0.8, z, s });
         r = 0.7 * s;
       } else { mound(x, z, s); r = 0.9 * s; }
-      if (!rc.plateau) { const o = { x, z, r }; obstacles.push(o); if (dry) ghosts.push(o); }
+      if (!dry) solids.push({ x, z, r: rv, top: heightAt(x, z) + h, soft: type !== 'mound' });
+      dry = clusterDry;
+      if (!rc.plateau) { const o = { x, z, r, pad: Math.max(0, rv - r) }; obstacles.push(o); if (dry) ghosts.push(o); }
     }
   }
   dry = false;
@@ -391,7 +420,12 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
   for (let i = 0; i < 40; i++) {
     const a = rng() * Math.PI * 2, d = range(rng, 43, 62);
     const kind = pick(rng, ['branch', 'fan', 'tube']);
-    addCut(kind, Math.cos(a) * d, Math.sin(a) * d, range(rng, 2.5, 4.5), { sway: kind === 'tube' ? 0 : 0.08, segY: 3 });
+    const x = Math.cos(a) * d, z = Math.sin(a) * d, w = range(rng, 2.5, 4.5);
+    const hide = blocked(x, z, w * 0.42);
+    if (hide) dry = true;
+    addCut(kind, x, z, w, { sway: kind === 'tube' ? 0 : 0.08, segY: 3 });
+    dry = false;
+    if (!hide) solids.push({ x, z, r: w * 0.42, soft: true });
   }
   // Kelp am Inselrand (vorne frei) und draußen
   for (let i = 0; i < 70; i++) {
@@ -400,7 +434,11 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
     const d = edge ? islandR(a) - range(rng, 1, 4) : range(rng, 42, 60);
     const x = Math.cos(a) * d, z = Math.sin(a) * d;
     if (edge && (!free(x, z, 0.5) || Math.abs(Math.atan2(x, z)) < 1.0)) continue;
-    addCut('kelp', x, z, range(rng, 1.1, 1.8), { sway: 0.9, speed: 0.6, segY: 10 });
+    const w = range(rng, 1.1, 1.8);
+    const hide = onStreet(x, z) || blocked(x, z, 0.35, 0.9, false);
+    if (hide) dry = true;
+    addCut('kelp', x, z, w, { sway: 0.9, speed: 0.6, segY: 10 });
+    dry = false;
     if (edge) obstacles.push({ x, z, r: 0.5 });
   }
   const addCutLater = [];
@@ -463,6 +501,8 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
       pos.set(sp.x, heightAt(sp.x, sp.z) - 0.02, sp.z);
       q.setFromAxisAngle(UPV, rng() * Math.PI);
       const s = range(rng, 0.6, 1.4);
+      // nicht durchs Pflaster, Häuser, Steine oder mitten durch Korallen wachsen (zählt wie „weggelassen“)
+      if (onStreet(sp.x, sp.z) || blocked(sp.x, sp.z, 0.3, 1, false) || blocked(sp.x, sp.z, 0.3, 0.55)) { skipped++; continue; }
       mesh.setMatrixAt(n++, m4.compose(pos, q, sc.set(s, s, s)));
     }
     mesh.count = n;
@@ -554,11 +594,20 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
 
     // Rahmen vorne: zwei große Pflanzengruppen in den unteren Ecken (Tiefe!)
     for (const [fx, fz] of [[-12.5, 21.5], [13, 22]]) {
+      const placed = [];
       for (let k = 0; k < 2; k++) {
-        const x = fx + range(rng, -1.6, 1.6), z = fz + range(rng, -1.2, 1.2);
+        let x = fx + range(rng, -1.6, 1.6), z = fz + range(rng, -1.2, 1.2);
         const kind = pick(rng, ['branch', 'fan', 'kelp', 'branch']);
-        if (kind === 'kelp') addCutLater.push(['kelp', x, z, range(rng, 1.4, 1.9), { sway: 0.9, speed: 0.6, segY: 10 }]);
-        else addCutLater.push([kind, x, z, range(rng, 2.6, 3.4), { planes: 2, sway: 0.08, segY: 3 }]);
+        const w = kind === 'kelp' ? range(rng, 1.4, 1.9) : range(rng, 2.6, 3.4);
+        const rv = kind === 'kelp' ? 0.5 : w * 0.5;
+        // zweite Pflanze so weit zur Seite rücken, dass sie die erste nicht durchsticht
+        for (const p of placed) {
+          const dx = x - p.x, dz = z - p.z, d = Math.hypot(dx, dz), need = p.rv + rv;
+          if (d < need) { const ux = d > 0.01 ? dx / d : 1, uz = d > 0.01 ? dz / d : 0; x = p.x + ux * need; z = p.z + uz * need; }
+        }
+        placed.push({ x, z, rv });
+        if (kind === 'kelp') addCutLater.push(['kelp', x, z, w, { sway: 0.9, speed: 0.6, segY: 10 }]);
+        else addCutLater.push([kind, x, z, w, { planes: 2, sway: 0.08, segY: 3 }]);
       }
       obstacles.push({ x: fx, z: fz, r: 2.2 });
     }
@@ -575,11 +624,12 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
   town.vents.push(...places.vents);
 
   /* ---------- Tiere ---------- */
-  updaters.push(buildFish(scene, rng, camera, reefAnemones));
+  const sky = skyline(scene, sceneStart, solids);
+  updaters.push(buildFish(scene, rng, camera, reefAnemones, sky));
   const glowMats = [];
-  updaters.push(buildJellies(scene, rng, camera, glowMats));
-  updaters.push(buildTurtle(scene, rng, 1.0, 30, 11, 0.055, 0));
-  updaters.push(buildTurtle(scene, rng, 0.7, 22, 7.5, -0.075, 2.4));
+  updaters.push(buildJellies(scene, rng, camera, glowMats, sky));
+  updaters.push(buildTurtle(scene, rng, 1.0, 30, 11, 0.055, 0, sky));
+  updaters.push(buildTurtle(scene, rng, 0.7, 22, 7.5, -0.075, 2.4, sky));
   updaters.push(buildManta(scene, rng));
 
   /* ---------- Blasen ---------- */
@@ -608,7 +658,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
   if (opts.season === 'halloween') updaters.push(buildHalloween(scene, rng, obstacles, camera, spot, env));
 
   return {
-    obstacles, bubbles, chest, env,
+    obstacles, bubbles, chest, env, sky,
     /** Tag/Nacht: night 0..1 */
     setEnv(night, dusk) {
       env.night = night; env.dusk = dusk;
@@ -838,7 +888,51 @@ class Confetti {
 /* =========================================================
    Papierfische (instanziert, Atlas)
    ========================================================= */
-function buildFish(scene, rng, camera, anemones) {
+/**
+ * „Himmel“ über festen Dingen: Höhe, unter die Fische, Quallen und Schildkröten nicht tauchen.
+ * Aus den Häusern/Orten (einzelne Meshes) und den gemerkten Steinen/Korallen; zu den Rändern
+ * hin sanft abfallend, damit Schwärme weich darüber gleiten statt zu springen.
+ */
+function skyline(scene, start, solids) {
+  const RES = 0.5, HALF = 66, N = Math.round((2 * HALF) / RES) + 1, SLOPE = 0.9, GAP = 0.5;
+  const grid = new Float32Array(N * N).fill(-99);
+  const raise = (minX, maxX, minZ, maxZ, top) => {
+    const reach = (top + 6) / SLOPE;
+    const i0 = Math.max(0, Math.floor((minX - reach + HALF) / RES)), i1 = Math.min(N - 1, Math.ceil((maxX + reach + HALF) / RES));
+    const j0 = Math.max(0, Math.floor((minZ - reach + HALF) / RES)), j1 = Math.min(N - 1, Math.ceil((maxZ + reach + HALF) / RES));
+    for (let j = j0; j <= j1; j++) {
+      const z = j * RES - HALF, dz = Math.max(minZ - z, 0, z - maxZ);
+      for (let i = i0; i <= i1; i++) {
+        const x = i * RES - HALF, dx = Math.max(minX - x, 0, x - maxX);
+        const h = top + GAP - Math.hypot(dx, dz) * SLOPE;
+        if (h > grid[j * N + i]) grid[j * N + i] = h;
+      }
+    }
+  };
+  scene.updateMatrixWorld(true);
+  const box = new THREE.Box3(), size = new THREE.Vector3();
+  for (const ch of scene.children.slice(start)) {
+    ch.traverse((o) => {
+      if (!o.isMesh || o.isInstancedMesh || !o.geometry?.attributes.position) return;
+      const m = Array.isArray(o.material) ? o.material[0] : o.material;
+      if (!m || m.transparent || m.depthWrite === false || !o.visible) return; // Lichtkegel, Glas usw.
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      box.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld).getSize(size);
+      if (size.x > 16 || size.z > 16 || size.y > 16 || size.y < 0.3) return; // nur einzelne Dinge
+      raise(box.min.x, box.max.x, box.min.z, box.max.z, box.max.y);
+    });
+  }
+  for (const o of solids) if (o.top !== undefined) raise(o.x - o.r * 0.7, o.x + o.r * 0.7, o.z - o.r * 0.7, o.z + o.r * 0.7, o.top);
+  return (x, z) => {
+    const fx = (x + HALF) / RES, fz = (z + HALF) / RES;
+    const i = Math.floor(fx), j = Math.floor(fz);
+    if (i < 0 || j < 0 || i >= N - 1 || j >= N - 1) return -99;
+    const u = fx - i, v = fz - j, k = j * N + i;
+    return (grid[k] * (1 - u) + grid[k + 1] * u) * (1 - v) + (grid[k + N] * (1 - u) + grid[k + N + 1] * u) * v;
+  };
+}
+
+function buildFish(scene, rng, camera, anemones, sky) {
   const schools = [
     { n: 34, d: 0, size: 0.9, R: 20, y: 6, speed: 0.11, spread: 3.2 },
     { n: 46, d: 1, size: 0.6, R: 13, y: 4, speed: -0.16, spread: 2.4 },
@@ -909,7 +1003,7 @@ function buildFish(scene, rng, camera, anemones) {
         if (d < 8) f.push.addScaledVector(away.normalize(), (8 - d) * dt * 2.5); // Schwärme weichen der Kamera aus
         f.push.multiplyScalar(1 - Math.min(1, dt * 0.8));
         a.add(f.push); b.add(f.push);
-        const minY = heightAt(a.x, a.z) + 0.9;
+        const minY = Math.max(heightAt(a.x, a.z) + 0.9, sky(a.x, a.z) + f.size * 0.3); // nicht durch Häuser & Co.
         if (a.y < minY) { const dy = minY - a.y; a.y += dy; b.y += dy; }
       }
       xA.subVectors(b, a).normalize();
@@ -928,7 +1022,7 @@ function buildFish(scene, rng, camera, anemones) {
 /* =========================================================
    Papierquallen
    ========================================================= */
-function buildJellies(scene, rng, camera, glowMats = []) {
+function buildJellies(scene, rng, camera, glowMats = [], sky = () => -99) {
   const assets = [0xff9ad5, 0x8fe9ff, 0xc3a6ff, 0xffc29e].map((c) => {
     const bell = drawJellyBell(rng, c), ten = drawTentacles(rng, c);
     return { bell, ten, bt: toTexture(bell.canvas), tt: toTexture(ten.canvas) };
@@ -963,8 +1057,9 @@ function buildJellies(scene, rng, camera, glowMats = []) {
       j.drift += dt * 0.05;
       j.g.position.x += Math.cos(j.drift) * dt * 0.25;
       j.g.position.z += Math.sin(j.drift) * dt * 0.25;
-      if (j.g.position.y > 27) j.g.position.y = 4;
-      if (j.g.position.y < 3.5) j.vy = Math.abs(j.vy) + 0.5;
+      const floor = Math.max(3.5, sky(j.g.position.x, j.g.position.z) + 1.4 * j.s); // Fäden nicht durchs Dach
+      if (j.g.position.y > 27) j.g.position.y = floor + 0.5;
+      if (j.g.position.y < floor) { j.g.position.y += (floor - j.g.position.y) * Math.min(1, dt * 3); j.vy = Math.abs(j.vy) + 0.5; }
       j.g.rotation.y = Math.atan2(camera.position.x - j.g.position.x, camera.position.z - j.g.position.z);
       j.g.rotation.z = Math.sin(t * 0.5 + j.ph) * 0.12;
     }
@@ -974,7 +1069,7 @@ function buildJellies(scene, rng, camera, glowMats = []) {
 /* =========================================================
    Papier-Schildkröte
    ========================================================= */
-function buildTurtle(scene, rng, scale, R, y, speed, phase) {
+function buildTurtle(scene, rng, scale, R, y, speed, phase, sky = () => -99) {
   const bodyStk = drawTurtleBody(rng), flipStk = drawFlipper(rng);
   const bt = toTexture(bodyStk.canvas), ft = toTexture(flipStk.canvas);
   const g = new THREE.Group();
@@ -997,7 +1092,8 @@ function buildTurtle(scene, rng, scale, R, y, speed, phase) {
   const m4 = new THREE.Matrix4(), xA = new THREE.Vector3(), yA = new THREE.Vector3(), zA = new THREE.Vector3();
   return (dt, t) => {
     const ang = phase + t * speed, dir = Math.sign(speed);
-    g.position.set(Math.cos(ang) * R, y + Math.sin(t * 0.4 + phase) * 1.5, Math.sin(ang) * R * 0.9);
+    const px = Math.cos(ang) * R, pz = Math.sin(ang) * R * 0.9;
+    g.position.set(px, Math.max(y + Math.sin(t * 0.4 + phase) * 1.5, sky(px, pz) + 1.2 * scale), pz);
     xA.set(-Math.sin(ang) * dir, Math.cos(t * 0.4 + phase) * 0.15, Math.cos(ang) * 0.9 * dir).normalize();
     zA.crossVectors(xA, UPV).normalize();
     yA.crossVectors(zA, xA);

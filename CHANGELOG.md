@@ -13,6 +13,12 @@ Alle sichtbaren Änderungen an Stargazer Sea, die neuesten oben.
   - Neuer Knopf „Startansicht“ bringt die Kamera zurück; ein Hinweis erklärt die Gesten.
 
 ### Behoben
+- **Nichts steckt mehr ineinander:**
+  - Grasbüschel wachsen nicht mehr durchs Pflaster der Muschelgasse, unter der Riesenmuschel oder durch den Anker.
+  - Korallen, Steine und Seetang ragen nicht mehr ineinander, ins Wrack oder an den Briefkasten.
+  - Die zwei großen Pflanzengruppen vorne stehen sauber nebeneinander.
+  - Fischschwärme, Quallen und Schildkröten schwimmen über Häuser und Orte hinweg statt hindurch.
+  - Krabben halten etwas mehr Abstand zu Steinen und Korallen.
 - **Falsche Fehlermeldung in Brave am iPhone** („window.ethereum…“): Fehler aus Skripten, die der Browser
   selbst einschleust, zeigen keine Meldung mehr.
 

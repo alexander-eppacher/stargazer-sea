@@ -350,7 +350,7 @@ const ctx = {
     }
     for (const o of ocean.obstacles) {
       const dx = crab.x - o.x, dz = crab.z - o.z;
-      const d = Math.hypot(dx, dz), lim = o.r + 1.4;
+      const d = Math.hypot(dx, dz), lim = o.r + (o.pad || 0) + 1.4;
       if (d < lim && d > 0.001) { const k = ((lim - d) / lim) * 2.2; ax += (dx / d) * k; az += (dz / d) * k; }
     }
     for (const other of neighbors(crab)) {
@@ -363,7 +363,7 @@ const ctx = {
   resolve(crab) {
     for (const o of ocean.obstacles) {
       const dx = crab.x - o.x, dz = crab.z - o.z;
-      const d = Math.hypot(dx, dz), min = o.r + 0.6;
+      const d = Math.hypot(dx, dz), min = o.r + (o.pad || 0) + 0.6;
       if (d < min) {
         const k = d > 0.001 ? min / d : 1;
         crab.x = o.x + (d > 0.001 ? dx : min) * k;
