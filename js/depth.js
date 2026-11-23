@@ -6,7 +6,7 @@
    Stärke: ?tiefe=dezent | deutlich (Standard: siehe DEFAULT)
    ========================================================= */
 import * as THREE from 'three';
-import { range, radialTexture } from './util.js';
+import { range, radialTexture, mulberry32 } from './util.js';
 import { canvas, grain } from './paper.js';
 
 const DEFAULT = 'deutlich';
@@ -107,7 +107,7 @@ function fishTexture() {
   return t;
 }
 
-export function buildDepth(scene, rng, { fogColor, nightU, env, lowY, surface }) {
+export function buildDepth(scene, rng, { fogColor, nightU, env, lowY, surface, camera }) {
   const q = new URLSearchParams(location.search).get('tiefe');
   const P = PRESETS[q] || PRESETS[DEFAULT];
   scene.fog.density = P.fog;
@@ -186,5 +186,168 @@ export function buildDepth(scene, rng, { fogColor, nightU, env, lowY, surface })
     });
   }
 
+  /* 4. mehr Abwechslung, Leben in der Ferne, Nachtstimmung (eigener Zufall – die Schichten oben bleiben gleich) */
+  extras(scene, mulberry32(4242), { fogColor, nightU, env, lowY, P, camera, updaters });
+
   return (dt, t) => { for (const u of updaters) u(dt, t); };
+}
+
+/* ---------- Silhouetten für die Ferne (weiß = Form) ---------- */
+function silCanvas(W, H, draw) { const [c, ctx] = canvas(W, H); ctx.fillStyle = '#fff'; ctx.strokeStyle = '#fff'; draw(ctx, W, H); return c; }
+/** Korallen-Riff: verzweigte Bäumchen und Fächer in Gruppen, dazwischen Lücken (wirkt nicht wie eine Reihe). */
+function reefCanvas(rng, W = 2048, H = 512) {
+  return silCanvas(W, H, (ctx) => {
+    const tree = (x, h, w) => {
+      const grow = (px, py, ang, len, lw, d) => {
+        const nx = px + Math.sin(ang) * len, ny = py - Math.cos(ang) * len;
+        ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(nx, ny); ctx.stroke();
+        if (d > 0) for (const s of [-1, 1]) grow(nx, ny, ang + s * range(rng, 0.25, 0.6), len * range(rng, 0.62, 0.8), lw * 0.7, d - 1);
+        else { ctx.beginPath(); ctx.arc(nx, ny, lw * 0.9, 0, 6.3); ctx.fill(); }
+      };
+      grow(x, H, range(rng, -0.1, 0.1), h * 0.35, w, 4);
+    };
+    const fan = (x, h) => { ctx.beginPath(); ctx.moveTo(x, H); ctx.ellipse(x, H - h * 0.45, h * 0.5, h * 0.55, 0, Math.PI * 0.95, Math.PI * 2.05); ctx.lineTo(x, H); ctx.fill(); };
+    for (const ox of [-W, 0, W]) {
+      for (let gI = 0; gI < 5; gI++) {
+        const cx = ox + (gI / 5) * W + range(rng, 40, 200);
+        ctx.beginPath(); ctx.ellipse(cx, H, range(rng, 120, 200), range(rng, 26, 50), 0, Math.PI, 0); ctx.fill(); // Sockel
+        for (let k = 0; k < 4; k++) {
+          const x = cx + range(rng, -110, 110), h = H * range(rng, 0.35, 0.8);
+          rng() < 0.55 ? tree(x, h, range(rng, 10, 18)) : fan(x, h * 0.75);
+        }
+      }
+    }
+  });
+}
+/** Versunkenes Schiff, schräg im Sand, mit gebrochenem Mast. */
+function wreckCanvas() {
+  return silCanvas(1024, 512, (ctx, W, H) => {
+    ctx.save(); ctx.translate(W * 0.5, H * 0.86); ctx.rotate(-0.12);
+    ctx.beginPath(); ctx.moveTo(-380, -40); ctx.lineTo(360, -70); ctx.quadraticCurveTo(410, -60, 400, 10); ctx.lineTo(-330, 60); ctx.quadraticCurveTo(-400, 30, -380, -40); ctx.fill(); // Rumpf
+    ctx.fillRect(-120, -150, 200, 100);                                   // Aufbau
+    ctx.fillRect(-20, -380, 22, 260); ctx.save(); ctx.translate(2, -380); ctx.rotate(0.9); ctx.fillRect(0, 0, 16, 140); ctx.restore(); // Mast, oben abgeknickt
+    ctx.fillRect(-230, -250, 16, 190);                                    // zweiter Mast
+    ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(-222, -250); ctx.lineTo(-10, -370); ctx.moveTo(-222, -250); ctx.lineTo(-380, -40); ctx.stroke(); // Taue
+    ctx.globalCompositeOperation = 'destination-out';
+    for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(-260 + i * 120, -10, 14, 0, 6.3); ctx.fill(); } // Bullaugen
+    ctx.beginPath(); ctx.moveTo(150, -40); ctx.lineTo(230, -55); ctx.lineTo(200, 20); ctx.closePath(); ctx.fill(); // Loch im Rumpf
+    ctx.restore();
+    ctx.beginPath(); ctx.ellipse(W * 0.5, H, W * 0.48, 46, 0, Math.PI, 0); ctx.fill(); // Sandhügel davor
+  });
+}
+function mantaCanvas() {
+  return silCanvas(512, 256, (ctx, W, H) => {
+    ctx.beginPath(); ctx.moveTo(W * 0.5, H * 0.22);
+    ctx.bezierCurveTo(W * 0.62, H * 0.25, W * 0.8, H * 0.45, W * 0.98, H * 0.55);
+    ctx.bezierCurveTo(W * 0.8, H * 0.6, W * 0.62, H * 0.62, W * 0.56, H * 0.78);
+    ctx.lineTo(W * 0.5, H * 0.98); ctx.lineTo(W * 0.44, H * 0.78);
+    ctx.bezierCurveTo(W * 0.38, H * 0.62, W * 0.2, H * 0.6, W * 0.02, H * 0.55);
+    ctx.bezierCurveTo(W * 0.2, H * 0.45, W * 0.38, H * 0.25, W * 0.5, H * 0.22); ctx.fill();
+    ctx.fillRect(W * 0.43, H * 0.12, 10, H * 0.14); ctx.fillRect(W * 0.55, H * 0.12, 10, H * 0.14); // Kopflappen
+  });
+}
+function whaleCanvas() {
+  return silCanvas(1024, 384, (ctx, W, H) => {
+    ctx.beginPath(); ctx.moveTo(W * 0.06, H * 0.55);
+    ctx.bezierCurveTo(W * 0.1, H * 0.2, W * 0.55, H * 0.15, W * 0.78, H * 0.42);
+    ctx.lineTo(W * 0.9, H * 0.3); ctx.lineTo(W * 0.98, H * 0.22); ctx.lineTo(W * 0.94, H * 0.48); ctx.lineTo(W * 0.99, H * 0.72); ctx.lineTo(W * 0.88, H * 0.6); ctx.lineTo(W * 0.78, H * 0.55);
+    ctx.bezierCurveTo(W * 0.55, H * 0.8, W * 0.2, H * 0.82, W * 0.06, H * 0.55); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(W * 0.32, H * 0.68); ctx.lineTo(W * 0.42, H * 0.95); ctx.lineTo(W * 0.46, H * 0.7); ctx.fill(); // Brustflosse
+  });
+}
+const silTex = (cv, wrap = false) => { const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; if (wrap) t.wrapS = THREE.RepeatWrapping; return t; };
+
+function extras(scene, rng, { fogColor, nightU, env, lowY, P, camera, updaters }) {
+  // a) Korallen-Riff in leicht farbigen Tönen zwischen Tang und Felsbögen, mit Lücken
+  {
+    const cv = reefCanvas(rng), tex = silTex(cv, true), edge = silTex(edgeCanvas(cv), true);
+    edge.wrapS = THREE.RepeatWrapping;
+    const R = 56, H = 20; // vor dem Tangwald: bringt Farbe in den unteren Teil der Kulissen
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(R, R, H, 96, 1, true), layerMaterial(tex, edge, 0x9a72c0, 0.3, P.deep, 0.1, fogColor, nightU));
+    m.geometry.attributes.uv.array.forEach((v, k, arr) => { if (k % 2 === 0) arr[k] = v * 2; });
+    m.position.y = lowY + H / 2 - 0.5; m.rotation.y = 1.3; m.renderOrder = -4;
+    scene.add(m);
+  }
+  // b) versunkenes Schiff weit hinten, steht schräg im Sand
+  {
+    const cv = wreckCanvas(), tex = silTex(cv), edge = silTex(edgeCanvas(cv));
+    const ang = -2.65, R = 51, w = 24, h = 12; // links hinten hinter der Stadt, vor den Kulissen (sonst verdeckt der Tang es)
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), layerMaterial(tex, edge, 0x5b4a6e, 0.22, P.deep * 0.4, 0.16, fogColor, nightU));
+    m.position.set(Math.cos(ang) * R, lowY + h / 2 - 1.2, Math.sin(ang) * R);
+    m.lookAt(0, m.position.y, 0);
+    m.renderOrder = -3;
+    scene.add(m);
+  }
+  // c) große Schattenrisse ziehen langsam vorbei: ein Mantarochen (flattert) und ein Wal
+  const swimmer = (cv, w, h, R, y, speed, phase, color, haze) => {
+    const mat = new THREE.MeshBasicMaterial({ map: silTex(cv), transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, depthWrite: false, fog: false });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+    m.renderOrder = -3; scene.add(m);
+    const base = new THREE.Color(color);
+    updaters.push((dt, t) => {
+      const a = phase + t * speed;
+      m.position.set(Math.cos(a) * R, y + Math.sin(t * 0.3 + phase) * 1.2, Math.sin(a) * R);
+      m.lookAt(0, m.position.y, 0);
+      m.rotateY(Math.PI / 2 * Math.sign(speed));                                  // Flanke zur Insel, Kopf in Schwimmrichtung
+      m.scale.set(1, 1 + Math.sin(t * 1.4 + phase) * (h > w * 0.45 ? 0.12 : 0.03), 1); // Manta schlägt mit den Flügeln
+      mat.color.copy(base).lerp(fogColor, haze).multiplyScalar(1 - env.night * 0.5);
+    });
+  };
+  swimmer(mantaCanvas(), 9, 4.5, 66, 15, 0.022, 0.4, 0x1f4c6e, 0.45);
+  swimmer(whaleCanvas(), 26, 9.7, 104, 22, -0.009, 3.6, 0x2a5578, 0.62);
+  // d) schwebende Teilchen rund um die Kamera (Tiefe), nachts leuchtendes Plankton
+  {
+    const N = 420, B = 34, pos = new Float32Array(N * 3), seed = new Float32Array(N);
+    for (let i = 0; i < N; i++) { pos.set([range(rng, -B, B), range(rng, -B * 0.4, B * 0.6), range(rng, -B, B)], i * 3); seed[i] = rng(); }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
+    const mat = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      uniforms: { uTime: { value: 0 }, uCam: { value: new THREE.Vector3() }, uNight: nightU, uB: { value: B } },
+      vertexShader: /* glsl */ `
+        attribute float aSeed; uniform float uTime, uB; uniform vec3 uCam; varying float vA; varying float vS;
+        void main() {
+          vec3 p = position + vec3(sin(uTime * 0.2 + aSeed * 40.0) * 0.8, uTime * (0.05 + aSeed * 0.08), cos(uTime * 0.17 + aSeed * 30.0) * 0.8);
+          p = mod(p - uCam + uB, 2.0 * uB) - uB + uCam;            // Kasten wandert mit der Kamera mit
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          float d = -mv.z; vA = smoothstep(uB, uB * 0.4, d) * smoothstep(0.5, 3.0, d); vS = aSeed;
+          gl_PointSize = (aSeed > 0.85 ? 2.6 : 1.6) * 260.0 / max(d, 0.5);
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: /* glsl */ `
+        uniform float uNight; varying float vA; varying float vS;
+        void main() {
+          float d = length(gl_PointCoord - 0.5); if (d > 0.5) discard;
+          float k = smoothstep(0.5, 0.0, d);
+          vec3 day = vec3(0.85, 0.95, 1.0) * 0.16;
+          vec3 night = mix(vec3(0.35, 1.0, 0.95), vec3(0.6, 0.7, 1.0), step(0.5, vS)) * (vS > 0.7 ? 0.9 : 0.25); // leuchtendes Plankton
+          gl_FragColor = vec4(mix(day, night, uNight) * k * vA, 1.0);
+        }`,
+    });
+    const pts = new THREE.Points(g, mat);
+    pts.frustumCulled = false; pts.renderOrder = 2;
+    scene.add(pts);
+    updaters.push((dt, t) => { mat.uniforms.uTime.value = t; if (camera) mat.uniforms.uCam.value.copy(camera.position); });
+  }
+  // e) nachts: ein paar glühende Quallen weit hinten, die langsam auf und ab treiben
+  {
+    const tex = radialTexture('rgba(255,255,255,1)', 'rgba(255,255,255,0)'), jel = [];
+    for (let i = 0; i < 7; i++) {
+      const mat = new THREE.SpriteMaterial({ map: tex, color: [0xff8fd8, 0x8ff0ff, 0xc6a0ff][i % 3], transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+      const sp = new THREE.Sprite(mat), a = rng() * Math.PI * 2, R = range(rng, 54, 70);
+      sp.position.set(Math.cos(a) * R, range(rng, 4, 14), Math.sin(a) * R);
+      sp.scale.setScalar(range(rng, 1.6, 2.6));
+      scene.add(sp);
+      jel.push({ sp, y: sp.position.y, ph: rng() * 6 });
+    }
+    updaters.push((dt, t) => {
+      const k = Math.max(0, (env.night - 0.3) / 0.6);
+      for (const j of jel) {
+        j.sp.position.y = j.y + Math.sin(t * 0.25 + j.ph) * 1.5;
+        j.sp.material.opacity = k * (0.55 + 0.35 * Math.sin(t * 1.7 + j.ph));
+        j.sp.visible = k > 0.01;
+      }
+    });
+  }
 }
