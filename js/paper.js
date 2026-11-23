@@ -156,26 +156,31 @@ export function drawBranchCoral(rng, color) {
 export function drawFanCoral(rng, color) {
   const W = 260, H = 230;
   return sticker(W, H, (ctx) => {
-    const cx = W / 2, cy = H - 26;
-    ctx.fillStyle = css(color);
-    ctx.beginPath();
-    ctx.moveTo(cx - 12, cy);
+    // ganzer Fächer passt in die Fläche (seitlich gestaucht), Adern nur innerhalb – sonst wirkt er abgehackt
+    const cx = W / 2, cy = H - 26, kx = 0.64, ky = 0.93;
+    const fan = new Path2D();
+    fan.moveTo(cx - 12, cy);
     const n = 9;
     for (let i = 0; i <= n; i++) {
       const a = -Math.PI * 0.92 + (i / n) * Math.PI * 0.84;
       const r = range(rng, 150, 190);
-      ctx.quadraticCurveTo(cx + Math.cos(a - 0.08) * r * 1.08, cy + Math.sin(a - 0.08) * r * 1.08, cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+      fan.quadraticCurveTo(cx + Math.cos(a - 0.08) * r * 1.08 * kx, cy + Math.sin(a - 0.08) * r * 1.08 * ky, cx + Math.cos(a) * r * kx, cy + Math.sin(a) * r * ky);
     }
-    ctx.lineTo(cx + 12, cy);
-    ctx.fill();
+    fan.lineTo(cx + 12, cy);
+    fan.closePath();
+    ctx.fillStyle = css(color);
+    ctx.fill(fan);
+    ctx.save();
+    ctx.clip(fan);
     ctx.strokeStyle = css(color, -0.28);
     ctx.lineWidth = 3;
     for (let i = 0; i < 14; i++) {
       const a = -Math.PI * 0.9 + (i / 13) * Math.PI * 0.8;
-      line(ctx, cx, cy, cx + Math.cos(a) * 200, cy + Math.sin(a) * 200);
+      line(ctx, cx, cy, cx + Math.cos(a) * 200 * kx, cy + Math.sin(a) * 200 * ky);
     }
     ctx.lineWidth = 2;
-    for (let r = 40; r < 200; r += 26) { ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke(); }
+    for (let r = 40; r < 200; r += 26) { ctx.beginPath(); ctx.ellipse(cx, cy, r * kx, r * ky, 0, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke(); }
+    ctx.restore();
     ctx.fillStyle = css(color, -0.35);
     ctx.fillRect(cx - 9, cy - 10, 18, 36);
     dots(ctx, W, H, css(color, 0.45), rng, 30, 2, 4);
@@ -494,9 +499,9 @@ export function cardboardTexture(rng) {
 }
 
 /** Wellige Kante (Überhang) um die Inseln. */
-export function frillTexture(rng, color = 0xf7e6b8) {
-  const W = 256, H = 64;
-  const stk = sticker(W, H - 16, (ctx, w, h) => {
+export function frillTexture(rng, color = 0xf7e6b8, k = 1) {
+  const W = 256 * k, H = 64 * k;
+  const stk = sticker(W, H - 16 * k, (ctx, w, h) => {
     ctx.fillStyle = css(color);
     ctx.beginPath();
     ctx.moveTo(0, 0); ctx.lineTo(w, 0); ctx.lineTo(w, h * 0.5);
@@ -507,13 +512,34 @@ export function frillTexture(rng, color = 0xf7e6b8) {
     }
     ctx.closePath(); ctx.fill();
     ctx.fillStyle = css(color, -0.08);
-    for (let i = 0; i < n; i++) circle(ctx, (i + 0.5) / n * w, h * 0.6, 5);
-  }, { rng, outline: 5, thick: 3 });
+    for (let i = 0; i < n; i++) circle(ctx, (i + 0.5) / n * w, h * 0.6, 5 * k);
+  }, { rng, outline: 5 * k, thick: 3 * k });
   // horizontal kachelbar machen: Ränder abschneiden
   const [c, ctx] = canvas(W, stk.canvas.height);
   ctx.drawImage(stk.canvas, stk.pad, 0, W, stk.canvas.height, 0, 0, W, stk.canvas.height);
   const t = toTexture(c);
   t.wrapS = THREE.RepeatWrapping;
+  return t;
+}
+
+/** Schnittkante von Wellpappe: Deckpapier oben und unten, dazwischen die Welle. Eine Kachel = eine Lage. */
+export function corrugatedTexture(rng) {
+  const W = 512, H = 128;
+  const [c, ctx] = canvas(W, H);
+  const liner = 14;
+  ctx.fillStyle = '#b98b52'; ctx.fillRect(0, 0, W, H);                       // Hohlräume (etwas dunkler)
+  ctx.fillStyle = '#d6a96d'; ctx.fillRect(0, 0, W, liner); ctx.fillRect(0, H - liner, W, liner); // Deckpapiere
+  ctx.strokeStyle = '#d6a96d'; ctx.lineWidth = 10; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  const waves = 4, amp = (H - liner * 2) / 2 - 6, mid = H / 2;
+  for (let x = 0; x <= W; x += 4) { const y = mid + Math.sin((x / W) * waves * Math.PI * 2) * amp; x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  ctx.stroke();
+  // feine Schatten unter dem oberen und über dem unteren Deckpapier, helle Kante oben
+  ctx.fillStyle = 'rgba(60,35,10,0.25)'; ctx.fillRect(0, liner, W, 3); ctx.fillRect(0, H - liner - 3, W, 3);
+  ctx.fillStyle = 'rgba(255,240,210,0.35)'; ctx.fillRect(0, 0, W, 2);
+  grain(ctx, W, H, rng, 1.5);
+  const t = toTexture(c, { repeat: true });
+  t.anisotropy = 8;
   return t;
 }
 

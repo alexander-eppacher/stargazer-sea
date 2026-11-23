@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { mulberry32, pick, range, clamp, noise3, mergeAll, setSway, vox, hdr, radialTexture } from './util.js';
+import { mulberry32, pick, range, clamp, noise3, mergeAll, setSway, vox, hdr, radialTexture, paint } from './util.js';
 import { patch, shared, standard, CAUSTIC_GLSL } from './shaders.js';
 import {
-  canvas, css, toTexture, grain, sticker, stickerGeometry, crossedGeometry,
+  canvas, css, toTexture, grain, sticker, stickerGeometry, crossedGeometry, corrugatedTexture,
   drawBranchCoral, drawFanCoral, drawTubeCoral, drawAnemone, drawKelp, drawTuft, drawStarfish, drawShell,
   drawUrchin, drawAnchor, drawSign, drawPebbles, drawRipples, drawClamShell,
   drawXmasTree, drawPresent, drawPumpkin, drawGhost,
@@ -115,9 +115,11 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
           float y = vDir.y;
           vec3 c = mix(uFog, vec3(0.03, 0.16, 0.32) * (1.0 - uNight * 0.6), smoothstep(0.0, -0.6, y));
           c = mix(c, mix(vec3(0.55, 0.9, 1.0), vec3(0.12, 0.2, 0.42), uNight), smoothstep(0.05, 0.8, y));
-          float sun = pow(max(dot(vDir, normalize(vec3(-0.2, 1.0, 0.3))), 0.0), 14.0);
+          float cs = max(dot(vDir, normalize(vec3(-0.2, 1.0, 0.3))), 0.0);
+          float sun = pow(cs, 14.0);
           vec3 glow = mix(vec3(0.6, 0.9, 1.0) * 0.7, vec3(0.7, 0.8, 1.0) * 0.35, uNight); // nachts: Mondschein
-          gl_FragColor = vec4(c + glow * sun, 1.0);
+          float moon = smoothstep(0.985, 0.993, cs) * uNight;                              // verschwommene Mondscheibe durchs Wasser
+          gl_FragColor = vec4(c + glow * sun + vec3(0.75, 0.85, 1.0) * moon * 0.55, 1.0);
         }`,
     }),
   );
@@ -189,9 +191,12 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
   lowSandTex.repeat.set(0.05, 0.05);
   const cardTex = cardboardTexture(rng);
   cardTex.repeat.set(0.3, 0.3);
-  const frill = frillTexture(rng, 0xfbeec4);
+  frillTexture(rng, 0xfbeec4); // nur würfeln wie früher (damit der übrige Aufbau gleich bleibt) …
+  const frill = frillTexture(mulberry32(812), 0xfbeec4, 2); // … gezeichnet wird doppelt so fein
+  frill.anisotropy = 8;
+  const edgeTex = corrugatedTexture(mulberry32(813));
   const sandMat = standard({ map: sandTex, roughness: 1 }, { caustics: 0.55 });
-  const cardMat = new THREE.MeshStandardMaterial({ map: cardTex, roughness: 1 });
+  const edgeMat = new THREE.MeshStandardMaterial({ map: edgeTex, roughness: 1 });
   const frillMat = new THREE.MeshStandardMaterial({ map: frill, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 1, emissiveMap: frill, emissive: 0x1a1a1a });
 
   function slab(rFn, cx, cz, top, depth, n = 120) {
@@ -201,14 +206,36 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
       const r = rFn(a);
       pts.push(new THREE.Vector2(cx + Math.cos(a) * r, cz + Math.sin(a) * r));
     }
+    // Deckel aus Sand …
     const shape = new THREE.Shape(pts.map((p) => new THREE.Vector2(p.x, -p.y)));
-    const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 1 });
+    const g = new THREE.ShapeGeometry(shape, 1);
     g.rotateX(-Math.PI / 2);
-    g.translate(0, top - depth, 0);
-    const mesh = new THREE.Mesh(g, [sandMat, cardMat]);
+    g.translate(0, top, 0);
+    const mesh = new THREE.Mesh(g, sandMat);
     mesh.receiveShadow = true;
-    mesh.castShadow = true;
     scene.add(mesh);
+    // … und eine runde Seitenwand aus gestapelter Wellpappe (glatt schattiert, Muster läuft sauber um)
+    const LAYER = 0.65, TILE = 2.2, wp = [], wn = [], wu = [], wi = [];
+    let run = 0;
+    for (let i = 0; i <= n; i++) {
+      const p = pts[i % n], pPrev = pts[(i - 1 + n) % n], pNext = pts[(i + 1) % n];
+      if (i > 0) run += p.distanceTo(pts[i - 1]);
+      let nx = pNext.y - pPrev.y, nz = -(pNext.x - pPrev.x);
+      const nl = Math.hypot(nx, nz) || 1; nx /= nl; nz /= nl;
+      if (nx * (p.x - cx) + nz * (p.y - cz) < 0) { nx = -nx; nz = -nz; }
+      wp.push(p.x, top, p.y, p.x, top - depth, p.y);
+      wn.push(nx, 0, nz, nx, 0, nz);
+      wu.push(run / TILE, depth / LAYER, run / TILE, 0);
+      if (i < n) { const b = i * 2; wi.push(b, b + 2, b + 1, b + 1, b + 2, b + 3); }
+    }
+    const wg = new THREE.BufferGeometry();
+    wg.setAttribute('position', new THREE.Float32BufferAttribute(wp, 3));
+    wg.setAttribute('normal', new THREE.Float32BufferAttribute(wn, 3));
+    wg.setAttribute('uv', new THREE.Float32BufferAttribute(wu, 2));
+    wg.setIndex(wi);
+    const wall = new THREE.Mesh(wg, edgeMat);
+    wall.castShadow = wall.receiveShadow = true;
+    scene.add(wall);
     // gewellte Papierkante
     const pos = [], uv = [], idx = [];
     let len = 0;
@@ -232,8 +259,8 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
     fm.receiveShadow = true;
     scene.add(fm);
   }
-  slab(islandR, 0, 0, 0, 7);
-  for (const p of PLATEAUS) slab((a) => plateauR(p, a), p.x, p.z, p.h, p.h + 0.5, 64);
+  slab(islandR, 0, 0, 0, 7, 360);
+  for (const p of PLATEAUS) slab((a) => plateauR(p, a), p.x, p.z, p.h, p.h + 0.5, 160);
 
   const low = new THREE.Mesh(
     new THREE.CircleGeometry(260, 64).rotateX(-Math.PI / 2),
@@ -244,7 +271,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
   scene.add(low);
 
   /* ---------- Hintergrund: gestaffelte Kulissen im Wasserdunst (js/depth.js) ---------- */
-  updaters.push(buildDepth(scene, mulberry32(9001), { fogColor: WORLD.fogColor, nightU, env, lowY: WORLD.lowY, surface }));
+  updaters.push(buildDepth(scene, mulberry32(9001), { fogColor: WORLD.fogColor, nightU, env, lowY: WORLD.lowY, surface, camera }));
   // Die alten Kulissen haben hier 140176 Zufallszahlen verbraucht. Überspringen, damit alle
   // Korallen, Steine usw. danach genau an derselben Stelle bleiben wie vorher.
   for (let i = 0; i < 140176; i++) rng();
@@ -265,6 +292,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
      Feste Dinge merken (x, z, Radius, Höhe). Deko, die hineinragen würde, wird nur ausgeblendet –
      gewürfelt wird trotzdem gleich, damit sich der Rest der Insel nicht verschiebt. */
   const solids = [];
+  const plants = []; // Seetang, Eck-Pflanzen, Seesterne: dort wächst hinterher kein Gras
   const blocked = (x, z, r, k = 0.9, soft = true) =>
     solids.some((o) => (soft || !o.soft) && Math.hypot(o.x - x, o.z - z) < (o.r + r) * k);
   const onStreet = (x, z) => {
@@ -324,7 +352,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
   for (let i = 0; i < 26; i++) {
     const a = rng() * Math.PI * 2, d = range(rng, 44, 62);
     const x = Math.cos(a) * d, z = Math.sin(a) * d, size = range(rng, 2, 5), sy = range(rng, 0.6, 1.1);
-    const show = !blocked(x, z, size * 1.05, 0.75); // große Felsen dürfen sich leicht berühren
+    const show = !blocked(x, z, size * 1.05, 1); // große Felsen nicht ineinander
     rock(x, z, size, sy, show);
     if (show) solids.push({ x, z, r: size * 1.1, top: size * sy });
   }
@@ -335,19 +363,52 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
   rockMesh.castShadow = rockMesh.receiveShadow = true;
   scene.add(rockMesh);
 
-  // Blubber-Schlote (Papprollen)
-  const vents = [];
+  // Blubber-Felsen: ein paar kantige Steine (wie die Felsen der Insel), zwischen denen es blubbert.
+  // Eigener Zufall je Stelle, damit der übrige Aufbau der Insel gleich bleibt.
+  const vents = [], ventGeos = [];
+  function ventRock(r, x, y, z, size, sy, base) {
+    const g = new THREE.IcosahedronGeometry(1, 1);
+    const p = g.attributes.position, seed = r() * 50;
+    for (let k = 0; k < p.count; k++) {
+      const v = new THREE.Vector3().fromBufferAttribute(p, k);
+      v.multiplyScalar(1 + noise3(v.x * 1.3 + seed, v.y * 1.3, v.z * 1.3) * 0.3);
+      p.setXYZ(k, v.x * size, Math.max(v.y, -0.3) * size * sy, v.z * size);
+    }
+    g.computeVertexNormals();
+    const col = new Float32Array(p.count * 3), c = new THREE.Color();
+    for (let k = 0; k < p.count; k += 3) {
+      c.set(base).multiplyScalar(0.9 + r() * 0.2);
+      for (let q = 0; q < 3; q++) col.set([c.r, c.g, c.b], (k + q) * 3);
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.rotateY(r() * Math.PI * 2);
+    g.translate(x, y, z);
+    ventGeos.push(g);
+  }
   for (let i = 0; i < 3; i++) {
     const sp = spot(10, 30, 2);
     if (!sp) continue;
-    const y0 = heightAt(sp.x, sp.z);
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.75, 1.6, 14, 1, true), new THREE.MeshStandardMaterial({ map: cardTex, side: THREE.DoubleSide, roughness: 1 }));
-    m.position.set(sp.x, y0 + 0.8, sp.z);
-    m.castShadow = m.receiveShadow = true;
-    scene.add(m);
+    const r = mulberry32(7100 + i * 31), y0 = heightAt(sp.x, sp.z), turn = r() * Math.PI * 2;
+    const base = [0xa7b8cf, 0x9fc0b6, 0xb6a9c9][i];
+    // drei bis vier Steine eng im Kreis, die Blasen steigen in der Mitte zwischen ihnen auf
+    const n = 3 + (i % 2);
+    for (let k = 0; k < n; k++) {
+      const a = turn + (k / n) * Math.PI * 2, d = 0.36 + r() * 0.05, size = 0.33 + r() * 0.1, sy = 1.3 + r() * 0.4;
+      ventRock(r, sp.x + Math.cos(a) * d, y0 - 0.05, sp.z + Math.sin(a) * d, size, sy, base);
+    }
+    // kleine Brocken davor
+    for (let k = 0; k < 3; k++) {
+      const a = turn + 0.5 + k * 2.2, d = 0.85 + r() * 0.15;
+      ventRock(r, sp.x + Math.cos(a) * d, y0 - 0.03, sp.z + Math.sin(a) * d, 0.12 + r() * 0.08, 0.8, base);
+    }
     obstacles.push({ x: sp.x, z: sp.z, r: 0.9 });
-    solids.push({ x: sp.x, z: sp.z, r: 0.8, top: 1.6 });
-    vents.push(new THREE.Vector3(sp.x, y0 + 1.6, sp.z));
+    solids.push({ x: sp.x, z: sp.z, r: 0.8, top: 0.7 });
+    vents.push(new THREE.Vector3(sp.x, y0 + 0.45, sp.z));
+  }
+  if (ventGeos.length) {
+    const vm = new THREE.Mesh(mergeAll(ventGeos, ['position', 'normal', 'color', 'uv']), rockMesh.material);
+    vm.castShadow = vm.receiveShadow = true;
+    scene.add(vm);
   }
 
   /* ---------- Korallen (Pappaufsteller) ---------- */
@@ -360,11 +421,23 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
     tuft: [0x4cc26a, 0x8bd450, 0x2fae8f, 0xa5c94a].map((c) => art(drawTuft(rng, c))),
   };
 
+  /** Fächerkoralle: EIN Fächer, sanft gebogen wie eine Karte (statt zwei gekreuzter Fächer, die abgehackt wirken). */
+  function bentFan(stk, worldW, segY) {
+    const g = stickerGeometry(stk, worldW, 'bottom', 12, segY), p = g.attributes.position;
+    const Rb = worldW * 0.8, half = (stk.canvas.width * g.userData.k) / 2, mid = Rb * (1 - Math.cos(half / Rb)) / 2;
+    for (let i = 0; i < p.count; i++) {
+      const ang = p.getX(i) / Rb;
+      p.setX(i, Rb * Math.sin(ang));
+      p.setZ(i, Rb * (1 - Math.cos(ang)) - mid);
+    }
+    g.computeVertexNormals();
+    return { list: [g], height: g.userData.contentH };
+  }
   const moundTex = {};
   const groups = new Map();
   function addCut(kind, x, z, worldW, { planes = 2, sway = 0, speed = 1, segY = 1 } = {}) {
     const a = pick(rng, A[kind]);
-    const { list, height } = crossedGeometry(a.stk, worldW, planes, segY);
+    const { list, height } = kind === 'fan' ? bentFan(a.stk, worldW, segY) : crossedGeometry(a.stk, worldW, planes, segY);
     const yaw = rng() * Math.PI, y = heightAt(x, z) - 0.02;
     for (const g of list) {
       g.rotateY(yaw);
@@ -439,15 +512,33 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
     if (hide) dry = true;
     addCut('kelp', x, z, w, { sway: 0.9, speed: 0.6, segY: 10 });
     dry = false;
+    if (!hide) plants.push({ x, z, r: 0.6 });
     if (edge) obstacles.push({ x, z, r: 0.5 });
   }
   const addCutLater = [];
   const flushCuts = () => {
     for (const args of addCutLater) addCut(...args);
+    pruneTufts();
     for (const g of groups.values()) {
       scene.add(cutMesh(mergeAll(g.geos, ['position', 'normal', 'uv', 'aSway']), g.t, { sway: g.sway, speed: g.speed }));
     }
   };
+
+  /** Grasbüschel, die später Gebautes (Seetang, Eck-Pflanzen, Seesterne) berühren würden, weglassen. */
+  function pruneTufts() {
+    const m4 = new THREE.Matrix4();
+    for (const mesh of new Set(tufts.map((t) => t.mesh))) {
+      const list = tufts.filter((t) => t.mesh === mesh);
+      let n = 0;
+      list.forEach((t, i) => {
+        if (plants.some((p) => Math.hypot(p.x - t.x, p.z - t.z) < p.r + t.half)) { tufts.splice(tufts.indexOf(t), 1); return; }
+        mesh.getMatrixAt(i, m4);
+        mesh.setMatrixAt(n++, m4);
+      });
+      mesh.count = n;
+      mesh.instanceMatrix.needsUpdate = true;
+    }
+  } // weggelassene Büschel fliegen aus der Liste: ein zweiter Aufruf passt dann wieder zu den Matrizen
 
   // Hirnkorallen als Papp-Kuppeln
   function mound(x, z, s) {
@@ -474,6 +565,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
   }
 
   /* ---------- Grasbüschel (instanziert) ---------- */
+  const tufts = [];
   // Büschel wachsen in Grüppchen (wirkt natürlicher als gleichmäßig verstreut)
   const tuftPatches = [];
   for (let i = 0; i < 34; i++) { const sp = spot(4, 36, 0.5, 6); if (sp) tuftPatches.push({ ...sp, r: range(rng, 1.2, 3.2) }); }
@@ -504,35 +596,45 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
       // nicht durchs Pflaster, Häuser, Steine oder mitten durch Korallen wachsen (zählt wie „weggelassen“)
       if (onStreet(sp.x, sp.z) || blocked(sp.x, sp.z, 0.3, 1, false) || blocked(sp.x, sp.z, 0.3, 0.55)) { skipped++; continue; }
       mesh.setMatrixAt(n++, m4.compose(pos, q, sc.set(s, s, s)));
+      tufts.push({ mesh, x: sp.x, z: sp.z, half: 0.45 * s });
     }
     mesh.count = n;
     mesh.receiveShadow = true;
     scene.add(mesh);
   }
 
-  /* ---------- Seesterne & Muscheln (Sticker auf dem Boden) ---------- */
+  /* ---------- Seesterne & Muscheln (echte kleine Formen auf dem Boden) ---------- */
   {
+    // die alten Bilder werden nur noch gewürfelt, damit der übrige Aufbau der Insel gleich bleibt
     const decos = [
-      ...[0xff7b39, 0xff4d6d, 0xb07ef0, 0x5b8cff, 0xffc93c].map((c) => ({ stk: drawStarfish(rng, c), size: [0.5, 0.9], n: 3 })),
-      ...[0xffe5d9, 0xf6bd60, 0xf7a1c4].map((c) => ({ stk: drawShell(rng, c), size: [0.35, 0.6], n: 3 })),
+      ...[0xff7b39, 0xff4d6d, 0xb07ef0, 0x5b8cff, 0xffc93c].map((c) => ({ stk: drawStarfish(rng, c), c, kind: 'star', size: [0.5, 0.9], n: 3 })),
+      ...[0xffe5d9, 0xf6bd60, 0xf7a1c4].map((c) => ({ stk: drawShell(rng, c), c, kind: 'shell', size: [0.35, 0.6], n: 3 })),
     ];
     const keepSmall = every(3);
+    const decoGeos = [];
     for (const d of decos) {
-      const t = toTexture(d.stk.canvas);
       const geos = [];
       for (let i = 0; i < d.n; i++) {
         const sp = spot(CHEST_FREE, 36, 0.4, 10);
         if (!sp) continue;
         if (inMeadow(sp.x, sp.z) && !keepSmall()) continue;
-        const g = stickerGeometry(d.stk, range(rng, ...d.size), 'center');
-        g.rotateX(-Math.PI / 2);
+        const size = range(rng, ...d.size);
+        const g = d.kind === 'star' ? starfish3D(size * 0.42, d.c, geos.length) : shell3D(size * 0.6, d.c);
         g.rotateY(rng() * Math.PI * 2);
-        g.translate(sp.x, heightAt(sp.x, sp.z) + 0.025 + i * 0.001, sp.z);
+        // dem Hang folgen: nach der Boden-Neigung kippen, damit nichts halb im Sand steckt oder schwebt
+        const e = 0.25, nx = heightAt(sp.x - e, sp.z) - heightAt(sp.x + e, sp.z), nz = heightAt(sp.x, sp.z - e) - heightAt(sp.x, sp.z + e);
+        g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(nx, 2 * e, nz).normalize()));
+        const deg = Math.atan2(sp.z, sp.x) * 180 / Math.PI, rr = Math.hypot(sp.x, sp.z);
+        if (deg > -127 && deg < -77 && rr > 31 && rr < 34.2) continue; // nicht auf die Pflastersteine der Muschelgasse
+        g.translate(sp.x, heightAt(sp.x, sp.z) - 0.01, sp.z);
+        plants.push({ x: sp.x, z: sp.z, r: size * 0.5 });
         geos.push(g);
       }
-      if (!geos.length) continue;
-      const m = new THREE.Mesh(mergeAll(geos, ['position', 'normal', 'uv']), cutMat(t, 0, 1, 0.25));
-      m.receiveShadow = true;
+      decoGeos.push(...geos);
+    }
+    if (decoGeos.length) {
+      const m = new THREE.Mesh(mergeAll(decoGeos), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, flatShading: true, side: THREE.DoubleSide })); // Muschel unten offen
+      m.castShadow = m.receiveShadow = true;
       scene.add(m);
     }
   }
@@ -571,8 +673,24 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
       m.receiveShadow = true;
       scene.add(m);
     };
-    const peb = drawPebbles(rng);
-    flat(peb, 1.6, 1, cutMat(toTexture(peb.canvas), 0, 1, 0.2), 0.02);
+    drawPebbles(rng); // nur würfeln wie früher
+    { // Kiesel-Fleck: echte kleine Steine statt Bild
+      const sp = spot(5, 35, 1.6 * 0.4, 10);
+      const k = sp ? range(rng, 0.8, 1.2) : 1, yaw = sp ? rng() * Math.PI * 2 : 0;
+      if (sp) {
+        const pr = mulberry32(5150), pg = [];
+        for (let i = 0; i < 11; i++) {
+          const a = pr() * Math.PI * 2 + yaw, d = Math.sqrt(pr()) * 0.62 * k, r0 = (0.07 + pr() * 0.07) * k;
+          const g = new THREE.DodecahedronGeometry(r0, 0); g.scale(1 + pr() * 0.4, 0.45, 1); g.rotateY(pr() * 3);
+          const x = sp.x + Math.cos(a) * d, z = sp.z + Math.sin(a) * d;
+          g.translate(x, heightAt(x, z) + r0 * 0.2, z);
+          pg.push(paint(g, [0xcfc6b8, 0xb9c7cf, 0xd8c7b0, 0xaebfb5, 0xe4d8c4][i % 5], { shade: true }));
+        }
+        const m = new THREE.Mesh(mergeAll(pg), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: true }));
+        m.castShadow = m.receiveShadow = true;
+        scene.add(m);
+      }
+    }
     const rip = drawRipples(rng, 0xf4d9a0);
     flat(rip, 4.2, 16, new THREE.MeshStandardMaterial({ map: toTexture(rip.canvas), transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2 }), 0.012);
 
@@ -586,7 +704,18 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
 
     // Wegweiser
     const sg = art(drawSign(rng, ['Stargazer Sea', t('sign.line')]));
-    const sign = cutMesh(stickerGeometry(sg.stk, 2.3, 'bottom'), sg.t);
+    // Schild mit Dicke: Vorderseite (Schrift), schlichte Rückseite und ein Kern dazwischen für Brett und Pfahl
+    const sign = new THREE.Group();
+    const front = cutMesh(stickerGeometry(sg.stk, 2.3, 'bottom'), sg.t);
+    const sgBack = art(drawSign(mulberry32(4242), ['', ''])); // eigener Zufall: der übrige Aufbau bleibt gleich
+    const back = cutMesh(stickerGeometry(sgBack.stk, 2.3, 'bottom'), sgBack.t);
+    const T = 0.1, k = front.geometry.userData.k, H = sg.stk.h;
+    front.position.z = T / 2; back.position.z = -T / 2; back.rotation.y = Math.PI;
+    // Kern aus Holz (Brett und Pfahl in ihren Holzfarben), etwas dünner als der Abstand, sonst flackert er mit den Bildern
+    const wood = (geo, color) => { const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 })); m.castShadow = true; return m; };
+    const board = wood(new THREE.BoxGeometry(282 * k, 126 * k, T * 0.7).translate(0, (H - 74) * k, 0), 0xb07a42);
+    const post = wood(new THREE.BoxGeometry(32 * k, 110 * k, T * 0.7).translate(0, 55 * k, 0), 0x8a5a30);
+    sign.add(front, back, board, post);
     sign.position.set(-8.5, heightAt(-8.5, 15.5) - 0.05, 15.5);
     sign.rotation.set(0, 0.32, -0.05);
     scene.add(sign);
@@ -606,6 +735,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
           if (d < need) { const ux = d > 0.01 ? dx / d : 1, uz = d > 0.01 ? dz / d : 0; x = p.x + ux * need; z = p.z + uz * need; }
         }
         placed.push({ x, z, rv });
+        plants.push({ x, z, r: rv + 0.1 });
         if (kind === 'kelp') addCutLater.push(['kelp', x, z, w, { sway: 0.9, speed: 0.6, segY: 10 }]);
         else addCutLater.push([kind, x, z, w, { planes: 2, sway: 0.08, segY: 3 }]);
       }
@@ -622,6 +752,9 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
   const places = buildPlaces(scene, { heightAt, obstacles, plateaus: PLATEAUS, plateauCorals, env, ...town });
   updaters.push(places.update);
   town.vents.push(...places.vents);
+
+  /* ---------- Mehr Leben: Seegras-Felder, Korallengruppen, Kelp-Wäldchen, Kleinkram, kleine Orte ---------- */
+  buildExtras({ scene, heightAt, obstacles, plants, solids, blocked, onStreet, free, A, tufts, pruneTufts, bentFan });
 
   /* ---------- Tiere ---------- */
   const sky = skyline(scene, sceneStart, solids);
@@ -674,53 +807,446 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
 /* =========================================================
    Schatztruhe + Papierstern
    ========================================================= */
+/* =========================================================
+   Mehr Leben auf der Insel (eigener Zufall – der übrige Aufbau bleibt gleich).
+   Die Mitte (Krabbenwiese) bleibt frei; alles hält Abstand zu Häusern, Orten und Korallen.
+   ========================================================= */
+function buildExtras({ scene, heightAt, obstacles, plants, solids, blocked, onStreet, free, A, tufts, pruneTufts, bentFan }) {
+  const r = mulberry32(9001);
+  const rr = (a, b) => a + r() * (b - a);
+  const taken = [];                                               // was hier schon neu gebaut wurde
+  const ok = (x, z, rad, { inner = 14 } = {}) => {
+    const d = Math.hypot(x, z);
+    return d > inner && d < islandR(Math.atan2(z, x)) - 2.5 - rad && free(x, z, rad) && !blocked(x, z, rad, 1) && !onStreet(x, z)
+      && !plants.some((p) => Math.hypot(p.x - x, p.z - z) < p.r + rad) && !taken.some((t) => Math.hypot(t.x - x, t.z - z) < t.r + rad)
+      && Math.hypot(x - 30, z + 30) > 9 && Math.hypot(x, z - 1) > 6   // Wrack-Sandbank, Truhe
+      && Object.values(PLACE_SPOTS).every(([px, pz, pr]) => Math.hypot(x - px, z - pz) > pr + rad + 1.8); // Spielplatz & Bad sind größer als ihr Platzhalter
+  };
+  const claim = (x, z, rad, { block = true, plant = true } = {}) => {
+    taken.push({ x, z, r: rad });
+    if (plant) plants.push({ x, z, r: rad });                       // dort kein Gras mehr
+    if (block) { obstacles.push({ x, z, r: rad }); solids.push({ x, z, r: rad }); }
+  };
+  const find = (rMin, rMax, rad, tries = 60, o) => {
+    for (let i = 0; i < tries; i++) {
+      const a = r() * Math.PI * 2, d = Math.sqrt(rr(rMin * rMin, rMax * rMax)), x = Math.cos(a) * d, z = Math.sin(a) * d;
+      if (ok(x, z, rad, o)) return { x, z };
+    }
+    return null;
+  };
+  const tilt = (g, x, z) => { // Boden-Neigung übernehmen
+    const e = 0.25, nx = heightAt(x - e, z) - heightAt(x + e, z), nz = heightAt(x, z - e) - heightAt(x, z + e);
+    g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(nx, 2 * e, nz).normalize()));
+    return g;
+  };
+  const solid = [];                                                // alles Feste, am Ende in einem Mesh
+  const S = (g, c) => solid.push(paint(g.index ? g.toNonIndexed() : g, c, { shade: true }));
+
+  // --- Papp-Pflanzen (Korallen, Kelp, Anemonen) wie die übrigen: nach Bild gruppiert ---
+  const cutGroups = new Map();
+  const cut = (kind, x, z, w, { planes = 2, sway = 0.08, speed = 1, segY = 3, y = null } = {}) => {
+    const a = A[kind][Math.floor(r() * A[kind].length)];
+    const { list, height } = kind === 'fan' ? bentFan(a.stk, w, segY) : crossedGeometry(a.stk, w, planes, segY);
+    const yaw = r() * Math.PI, y0 = y ?? heightAt(x, z) - 0.02;
+    for (const g of list) { g.rotateY(yaw); g.translate(x, y0, z); setSway(g, y0, height, 1.5); }
+    const key = `${a.t.uuid}|${sway}|${speed}`;
+    if (!cutGroups.has(key)) cutGroups.set(key, { t: a.t, geos: [], sway, speed });
+    cutGroups.get(key).geos.push(...list);
+    return height;
+  };
+
+  // 1) Korallengruppen rund um die Wiese
+  for (let i = 0; i < 9; i++) {
+    const c = find(19, 37, 2.2);
+    if (!c) continue;
+    claim(c.x, c.z, 2.2, { block: false, plant: false });
+    const n = 3 + Math.floor(r() * 3);
+    for (let k = 0; k < n; k++) {
+      const a = r() * Math.PI * 2, d = rr(0, 1.6), x = c.x + Math.cos(a) * d, z = c.z + Math.sin(a) * d;
+      const kind = ['branch', 'fan', 'tube', 'branch', 'anemone'][Math.floor(r() * 5)], s = rr(0.7, 1.15);
+      const rad = { branch: 0.9, fan: 0.95, tube: 0.6, anemone: 0.65 }[kind] * s;
+      if (!free(x, z, rad * 0.6) || blocked(x, z, rad, 1) || plants.some((p) => Math.hypot(p.x - x, p.z - z) < p.r + rad * 0.8)) continue;
+      const w = { branch: 2.0, fan: 2.2, tube: 1.5, anemone: 1.6 }[kind] * s;
+      cut(kind, x, z, w, kind === 'tube' ? { sway: 0 } : kind === 'anemone' ? { planes: 3, sway: 0.12, speed: 1.8 } : kind === 'branch' ? { planes: 3, sway: 0.06 } : { sway: 0.1 });
+      plants.push({ x, z, r: rad }); solids.push({ x, z, r: rad, soft: true }); obstacles.push({ x, z, r: rad * 0.8 });
+    }
+  }
+
+  // 2) Kelp-Wäldchen am Inselrand
+  for (let i = 0; i < 4; i++) {
+    const c = find(30, 38, 1.8);
+    if (!c) continue;
+    claim(c.x, c.z, 1.8, { block: false, plant: false });
+    for (let k = 0; k < 5; k++) {
+      const a = r() * Math.PI * 2, d = rr(0, 1.4), x = c.x + Math.cos(a) * d, z = c.z + Math.sin(a) * d;
+      const w = rr(1.4, 2.0), rad = w * 0.45; // Blätter reichen so weit – Nachbarn nicht durchstechen
+      if (!free(x, z, 0.3) || plants.some((p) => Math.hypot(p.x - x, p.z - z) < p.r + rad)) continue;
+      cut('kelp', x, z, w, { planes: 2, sway: 0.9, speed: 0.6, segY: 10 });
+      plants.push({ x, z, r: rad }); obstacles.push({ x, z, r: 0.4 });
+    }
+  }
+
+  // 3) Anemonen auf kleinen Steinen
+  const rock = (x, y, z, size, sy, base) => {
+    const g = new THREE.IcosahedronGeometry(1, 1), p = g.attributes.position, seed = r() * 50;
+    for (let k = 0; k < p.count; k++) {
+      const v = new THREE.Vector3().fromBufferAttribute(p, k);
+      v.multiplyScalar(1 + noise3(v.x * 1.3 + seed, v.y * 1.3, v.z * 1.3) * 0.25);
+      p.setXYZ(k, v.x * size, Math.max(v.y, -0.3) * size * sy, v.z * size);
+    }
+    g.translate(x, y, z);
+    S(g, base);
+  };
+  for (let i = 0; i < 5; i++) {
+    const c = find(15, 36, 0.9);
+    if (!c) continue;
+    claim(c.x, c.z, 0.9);
+    const y = heightAt(c.x, c.z), size = rr(0.5, 0.7), sy = 0.75;
+    rock(c.x, y - 0.05, c.z, size, sy, [0xa7b8cf, 0x9fc0b6, 0xb6a9c9][i % 3]);
+    cut('anemone', c.x, c.z, rr(1.0, 1.3), { planes: 3, sway: 0.12, speed: 1.8, y: y + size * sy * 0.8 });
+  }
+
+  // 4) Dichte Seegras-Felder (Büschel wie die übrigen, in Feldern)
+  for (const a of A.tuft) {
+    const { list, height } = crossedGeometry(a.stk, 0.9, 2, 2);
+    const g = mergeAll(list, ['position', 'normal', 'uv']);
+    setSway(g, 0, height, 1.5);
+    const pts = [];
+    for (let f = 0; f < 4; f++) {
+      const c = find(16, 37, 1.2, 40, { inner: 16 });
+      if (!c) continue;
+      const fr = rr(1.0, 1.8);
+      for (let k = 0; k < 14; k++) {
+        const ang = r() * Math.PI * 2, d = Math.sqrt(r()) * fr, x = c.x + Math.cos(ang) * d, z = c.z + Math.sin(ang) * d;
+        if (free(x, z, 0.25) && !blocked(x, z, 0.3, 1) && !onStreet(x, z) && !plants.some((p) => Math.hypot(p.x - x, p.z - z) < p.r + 0.3)) pts.push([x, z]);
+      }
+    }
+    if (!pts.length) continue;
+    const mesh = new THREE.InstancedMesh(g, cutMat(a.t, 0.1, 1.5), pts.length);
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
+    pts.forEach(([x, z], k) => {
+      const s = rr(0.7, 1.25);
+      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r() * Math.PI);
+      m4.compose(pos.set(x, heightAt(x, z) - 0.03, z), q, sc.set(s, s * rr(0.85, 1.2), s));
+      mesh.setMatrixAt(k, m4);
+      tufts.push({ mesh, x, z, half: 0.45 * s });
+    });
+    mesh.receiveShadow = true;
+    mesh.name = 'extrasGrass';
+    scene.add(mesh);
+  }
+
+  // 5) Sanddollars und Seeigel im Sand
+  for (let i = 0; i < 12; i++) {
+    const c = find(8, 37, 0.3, 30, { inner: 8 });
+    if (!c) continue;
+    claim(c.x, c.z, 0.3, { block: false });
+    const R = rr(0.16, 0.24), parts = [];
+    parts.push(paint(new THREE.CylinderGeometry(R, R * 1.03, 0.045, 22).toNonIndexed(), 0xeadfc4, { shade: true }));
+    for (let k = 0; k < 5; k++) {
+      const a = (k / 5) * Math.PI * 2, petal = new THREE.SphereGeometry(R * 0.32, 8, 4);
+      petal.scale(0.38, 0.12, 1); petal.translate(0, 0.022, R * 0.42); petal.rotateY(a);
+      parts.push(paint(petal.toNonIndexed(), 0xcbb991, { shade: true }));
+    }
+    const g = mergeAll(parts); g.rotateY(r() * 6.28); tilt(g, c.x, c.z); g.translate(c.x, heightAt(c.x, c.z) + 0.01, c.z);
+    solid.push(g);
+  }
+  const spikeDirs = (() => { const ico = new THREE.IcosahedronGeometry(1, 1), p = ico.attributes.position, out = [], seen = new Set();
+    for (let k = 0; k < p.count; k++) { const v = new THREE.Vector3().fromBufferAttribute(p, k).normalize(), key = v.toArray().map((x) => x.toFixed(3)).join(); if (!seen.has(key) && v.y > -0.3) { seen.add(key); out.push(v); } }
+    return out; })();
+  for (let i = 0; i < 7; i++) {
+    const c = find(10, 37, 0.4, 30, { inner: 10 });
+    if (!c) continue;
+    claim(c.x, c.z, 0.4, { plant: true });
+    const R = rr(0.14, 0.2), col = [0x5b2a86, 0x2f3a7a, 0x8a2b5b][i % 3], parts = [];
+    const body = new THREE.IcosahedronGeometry(R, 1); body.scale(1, 0.8, 1); parts.push(paint(body, col, { shade: true })); // Ikosaeder ist schon ohne Index
+    for (const v of spikeDirs) {
+      const len = R * rr(1.1, 1.7), cone = new THREE.ConeGeometry(R * 0.09, len, 4);
+      cone.translate(0, len / 2, 0); cone.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), v));
+      cone.translate(v.x * R * 0.85, v.y * R * 0.7, v.z * R * 0.85);
+      parts.push(paint(cone.toNonIndexed(), new THREE.Color(col).lerp(new THREE.Color(0xffffff), 0.15).getHex(), { shade: true }));
+    }
+    const g = mergeAll(parts); g.translate(c.x, heightAt(c.x, c.z) + R * 0.5, c.z);
+    solid.push(g);
+  }
+
+  // 6) Kleine Orte
+  const spotFor = (rad, rMin = 18, rMax = 36) => find(rMin, rMax, rad, 120, { inner: rMin });
+  // a) Flaschenpost: Flasche liegt schräg im Sand, Korken, Brief guckt heraus
+  { const c = spotFor(1.0);
+    if (c) {
+      claim(c.x, c.z, 1.0);
+      const L = [];
+      const bottle = new THREE.LatheGeometry([[0, 0], [0.22, 0], [0.26, 0.05], [0.26, 0.62], [0.2, 0.75], [0.1, 0.86], [0.09, 1.02], [0.11, 1.05], [0.11, 1.1], [0, 1.1]].map(([x, y]) => new THREE.Vector2(x, y)), 16);
+      L.push(paint(bottle.toNonIndexed(), 0x5fb98a, { shade: true }));
+      L.push(paint(new THREE.CylinderGeometry(0.085, 0.075, 0.14, 10).translate(0, 1.15, 0).toNonIndexed(), 0xc49a6c, { shade: true }));
+      const scroll = new THREE.CylinderGeometry(0.06, 0.06, 0.5, 10); scroll.translate(0, 0.42, 0); L.push(paint(scroll.toNonIndexed(), 0xfff1d6, { shade: true }));
+      L.push(paint(new THREE.TorusGeometry(0.062, 0.015, 4, 10).rotateX(Math.PI / 2).translate(0, 0.45, 0).toNonIndexed(), 0xe2574c, { shade: true })); // Schleife um den Brief
+      const g = mergeAll(L); g.rotateZ(Math.PI / 2 - 0.12); g.rotateY(r() * 6.28); g.translate(c.x, heightAt(c.x, c.z) + 0.14, c.z);
+      solid.push(g);
+      // kleiner Sandwall davor
+      const mound = new THREE.SphereGeometry(0.4, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2); mound.scale(1.4, 0.25, 0.8); mound.translate(c.x, heightAt(c.x, c.z) - 0.02, c.z);
+      S(mound, 0xeed39a);
+    } }
+  // b) Ruderboot, halb im Sand versunken, Ruder daneben
+  { const c = spotFor(2.0, 22, 36);
+    if (c) {
+      claim(c.x, c.z, 2.0);
+      const B = [], wood = 0x9a6a3c, woodL = 0xb8834d;
+      // Rumpf: halbe, längliche Schale (Planken abwechselnd), innen dunkler
+      const hull = (rad, col, inner) => {
+        const g = new THREE.SphereGeometry(rad, 18, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
+        g.scale(1, 0.85, 2.1);
+        const n = g.toNonIndexed();
+        if (inner) { const p = n.attributes.position; for (let k = 0; k < p.count; k += 3) { const t = [p.getX(k + 1), p.getY(k + 1), p.getZ(k + 1)]; p.setXYZ(k + 1, p.getX(k + 2), p.getY(k + 2), p.getZ(k + 2)); p.setXYZ(k + 2, ...t); } }
+        n.computeVertexNormals();
+        const p = n.attributes.position, col2 = new Float32Array(p.count * 3), cc = new THREE.Color();
+        for (let k = 0; k < p.count; k += 3) { const y = (p.getY(k) + p.getY(k + 1) + p.getY(k + 2)) / 3; cc.set(Math.floor(-y / 0.09) % 2 ? col : new THREE.Color(col).multiplyScalar(1.12).getHex()); for (let q = 0; q < 3; q++) col2.set([cc.r, cc.g, cc.b], (k + q) * 3); }
+        n.setAttribute('color', new THREE.BufferAttribute(col2, 3));
+        return n;
+      };
+      B.push(hull(0.62, wood, false), hull(0.56, 0x6e4a2a, true));
+      B.push(paint(new THREE.TorusGeometry(0.6, 0.06, 5, 32).rotateX(Math.PI / 2).scale(1, 1, 2.1).toNonIndexed(), woodL, { shade: true })); // Bordrand
+      B.push(paint(new THREE.BoxGeometry(1.08, 0.06, 0.24).translate(0, -0.1, 0.25).toNonIndexed(), woodL, { shade: true }), paint(new THREE.BoxGeometry(0.9, 0.06, 0.22).translate(0, -0.1, -0.6).toNonIndexed(), woodL, { shade: true })); // zwei Sitzbänke
+      const by = r() * 6.28, g = mergeAll(B); g.rotateZ(0.18); g.rotateX(-0.1); g.rotateY(by);
+      g.translate(c.x, heightAt(c.x, c.z) + 0.22, c.z);                                  // liegt leicht schräg, der Bauch steckt im Sand
+      solid.push(g);
+      const oar = mergeAll([paint(new THREE.CylinderGeometry(0.03, 0.03, 1.5, 6).toNonIndexed(), woodL, { shade: true }), paint(new THREE.BoxGeometry(0.16, 0.42, 0.03).translate(0, -0.85, 0).toNonIndexed(), woodL, { shade: true })]);
+      oar.rotateZ(Math.PI / 2); oar.rotateX(Math.PI / 2); oar.rotateY(by + Math.PI / 2 + 0.15); // flach im Sand, neben dem Boot
+      const ox = c.x + Math.cos(by) * 1.05, oz = c.z - Math.sin(by) * 1.05; oar.translate(ox, heightAt(ox, oz) + 0.04, oz);
+      solid.push(oar);
+    } }
+  // c) Steinköpfe: drei kleine Köpfe mit Moos, schauen zur Inselmitte
+  { const c = spotFor(1.8, 20, 35);
+    if (c) {
+      claim(c.x, c.z, 1.8);
+      const yaw = Math.atan2(-c.x, -c.z);
+      [[-1.0, 0.9], [0, 1.15], [1.0, 0.8]].forEach(([off, s]) => {
+        const H = [];
+        const stone = 0x9aa3ad, dark = 0x6f7882, moss = 0x7cb342;
+        H.push(paint(new THREE.BoxGeometry(0.5, 0.9, 0.42).translate(0, 0.45, 0).toNonIndexed(), stone, { shade: true }));   // Kopf
+        H.push(paint(new THREE.BoxGeometry(0.54, 0.12, 0.2).translate(0, 0.66, 0.16).toNonIndexed(), dark, { shade: true })); // Stirn
+        H.push(paint(new THREE.BoxGeometry(0.12, 0.32, 0.16).translate(0, 0.46, 0.25).toNonIndexed(), stone, { shade: true })); // Nase
+        H.push(paint(new THREE.BoxGeometry(0.28, 0.05, 0.05).translate(0, 0.22, 0.22).toNonIndexed(), dark, { shade: true })); // Mund
+        H.push(paint(new THREE.BoxGeometry(0.52, 0.06, 0.44).translate(0, 0.9, 0).toNonIndexed(), moss, { shade: true }));   // Moos oben
+        H.push(paint(new THREE.SphereGeometry(0.09, 6, 4).translate(-0.18, 0.95, 0.05).toNonIndexed(), 0x9ccc65, { shade: true }));
+        const g = mergeAll(H); g.scale(s, s, s); g.rotateY(yaw + rr(-0.15, 0.15)); g.rotateZ(rr(-0.08, 0.08));
+        const x = c.x + Math.cos(yaw) * off, z = c.z - Math.sin(yaw) * off;
+        g.translate(x, heightAt(x, z) - 0.12 * s, z);
+        solid.push(g);
+      });
+    } }
+  // d) Mini-Garten: Zaun, runde Büsche, Blumen, Kieselweg, Gießkanne
+  { const c = spotFor(1.9, 18, 34);
+    if (c) {
+      claim(c.x, c.z, 1.9);
+      const y0 = heightAt(c.x, c.z), Gd = [], R0 = 1.5;
+      for (let k = 0; k < 22; k++) {                                     // Lattenzaun mit Lücke als Tor
+        const a = (k / 22) * Math.PI * 2;
+        if (k === 0 || k === 21) continue;
+        const x = c.x + Math.cos(a) * R0, z = c.z + Math.sin(a) * R0, post = new THREE.BoxGeometry(0.08, 0.42, 0.05);
+        post.rotateY(-a); post.translate(x, heightAt(x, z) + 0.2, z); Gd.push(paint(post.toNonIndexed(), 0xfff1d6, { shade: true }));
+      }
+      const rail = new THREE.TorusGeometry(R0, 0.025, 4, 44, Math.PI * 2 * (19 / 22)); rail.rotateX(Math.PI / 2); rail.rotateY(-Math.PI * 2 / 22); // vom ersten bis zum letzten Pfosten
+      rail.translate(c.x, y0 + 0.28, c.z); Gd.push(paint(rail.toNonIndexed(), 0xfff1d6, { shade: true }));
+      const bushes = [[-0.6, -0.3, 0.32, 0x4caf50], [0.5, -0.55, 0.26, 0x66bb6a], [0.2, 0.6, 0.3, 0x43a047], [-0.2, 0.05, 0.2, 0]]; // letzter: Platz der Gießkanne
+      for (const [dx, dz, s, col] of bushes.slice(0, 3)) { // Büsche
+        const b = new THREE.IcosahedronGeometry(s, 1); b.scale(1, 0.85, 1); b.translate(c.x + dx, heightAt(c.x + dx, c.z + dz) + s * 0.7, c.z + dz); Gd.push(paint(b, col, { shade: true }));
+      }
+      const flowers = [];
+      for (let k = 0; k < 9; k++) {                                       // Blumen
+        const a = r() * Math.PI * 2, d = rr(0.3, 1.15), x = c.x + Math.cos(a) * d, z = c.z + Math.sin(a) * d, h = rr(0.25, 0.4);
+        if (bushes.some(([dx, dz, s]) => Math.hypot(c.x + dx - x, c.z + dz - z) < s + 0.1) || (z - c.z < 0.15 && z - c.z > -0.15 && x > c.x)) continue; // nicht in Büsche, Kanne oder Weg
+        if (flowers.some(([fx, fz]) => Math.hypot(fx - x, fz - z) < 0.16)) continue; // Blüten nicht ineinander
+        flowers.push([x, z]);
+        Gd.push(paint(new THREE.CylinderGeometry(0.015, 0.015, h, 4).translate(x, heightAt(x, z) + h / 2, z).toNonIndexed(), 0x388e3c, { shade: true }));
+        Gd.push(paint(new THREE.SphereGeometry(0.06, 6, 4).translate(x, heightAt(x, z) + h + 0.03, z).toNonIndexed(), [0xff6f91, 0xffd166, 0xb07ef0, 0xff9f45][k % 4], { shade: true }));
+      }
+      for (let k = 0; k < 6; k++) {                                       // Kieselweg zum Tor (Lücke bei Winkel 0)
+        const x = c.x + R0 * (0.25 + k * 0.17), z = c.z + (k % 2 ? 0.05 : -0.05), p = new THREE.DodecahedronGeometry(0.07);
+        p.scale(1.3, 0.4, 1); p.translate(x, heightAt(x, z) + 0.01, z); Gd.push(paint(p, 0xd8cfc0, { shade: true }));
+      }
+      // Gießkanne
+      const cx = c.x - 0.2, cz = c.z + 0.05, cy = heightAt(cx, cz);
+      const can = [paint(new THREE.CylinderGeometry(0.14, 0.16, 0.26, 12).translate(0, 0.13, 0).toNonIndexed(), 0x4fc3f7, { shade: true }),
+        paint(new THREE.CylinderGeometry(0.025, 0.035, 0.32, 6).rotateZ(-0.9).translate(0.22, 0.2, 0).toNonIndexed(), 0x4fc3f7, { shade: true }),
+        paint(new THREE.TorusGeometry(0.1, 0.02, 4, 10, Math.PI).translate(0, 0.26, 0).toNonIndexed(), 0x0288d1, { shade: true })];
+      const cg = mergeAll(can); cg.rotateY(r() * 6.28); cg.translate(cx, cy, cz); Gd.push(cg);
+      solid.push(...Gd);
+    } }
+
+  // alles bauen
+  if (solid.length) {
+    const m = new THREE.Mesh(mergeAll(solid), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, flatShading: true }));
+    m.castShadow = m.receiveShadow = true;
+    m.name = 'extras';
+    scene.add(m);
+  }
+  for (const g of cutGroups.values()) scene.add(Object.assign(cutMesh(mergeAll(g.geos, ['position', 'normal', 'uv', 'aSway']), g.t, { sway: g.sway, speed: g.speed }), { name: 'extrasCut' }));
+  pruneTufts(); // altes Gras dort weg, wo jetzt etwas steht
+}
+
+/** Seestern zum Anfassen: fünf runde Arme, leicht gewölbt, mit hellen Noppen. R = Armlänge. */
+function starfish3D(R, color, seed) {
+  const sh = new THREE.Shape(), n = 5, ri = R * 0.42, r = mulberry32(300 + seed * 17), bend = 0.12;
+  const Ls = Array.from({ length: n }, () => R * (0.88 + r() * 0.24)); // Arme leicht verschieden lang
+  sh.moveTo(Ls[0], 0);
+  for (let k = 0; k < n; k++) {
+    const a0 = (k / n) * Math.PI * 2, a1 = a0 + Math.PI / n, a2 = a0 + (2 * Math.PI) / n, L = Ls[k], L2 = Ls[(k + 1) % n];
+    sh.quadraticCurveTo(Math.cos(a0 + bend) * L * 0.6, Math.sin(a0 + bend) * L * 0.6, Math.cos(a1) * ri, Math.sin(a1) * ri);
+    sh.quadraticCurveTo(Math.cos(a2 - bend) * L2 * 0.6, Math.sin(a2 - bend) * L2 * 0.6, Math.cos(a2) * L2, Math.sin(a2) * L2);
+  }
+  const g = new THREE.ExtrudeGeometry(sh, { depth: R * 0.08, bevelEnabled: true, bevelThickness: R * 0.1, bevelSize: R * 0.09, bevelSegments: 2, curveSegments: 6 });
+  g.rotateX(-Math.PI / 2); g.translate(0, R * 0.1, 0);
+  const parts = [paint(g, color, { shade: true })];
+  // helle Noppen auf jedem Arm
+  const dot = new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.55).getHex();
+  for (let k = 0; k < n; k++) for (const f of [0.35, 0.62]) {
+    const a = (k / n) * Math.PI * 2, b = new THREE.SphereGeometry(R * 0.07, 6, 4);
+    b.translate(Math.cos(a) * R * f, R * 0.29, -Math.sin(a) * R * f);
+    parts.push(paint(b, dot, { shade: true }));
+  }
+  parts.push(paint(new THREE.SphereGeometry(R * 0.09, 6, 4).translate(0, R * 0.3, 0), dot, { shade: true }));
+  return mergeAll(parts);
+}
+/** Kleine Jakobsmuschel: gewölbter Fächer mit Rippen, liegt mit der Wölbung nach oben. R = Länge. */
+function shell3D(R, color) {
+  const NU = 22, NV = 6, RIBS = 7, pos = [];
+  const P = (u, v) => {
+    const phi = (u - 0.5) * 2.4, rib = 0.06 * R * Math.abs(Math.sin(phi * RIBS / 1.2)) * v;
+    const rho = R * v * (1 + 0.04 * Math.cos(phi * RIBS * 2 / 1.2));
+    return [Math.sin(phi) * rho, R * 0.26 * Math.sin(Math.PI * Math.min(1, v * 1.05)) * Math.cos(phi * 0.45) + rib, Math.cos(phi) * rho - R * 0.45];
+  };
+  for (let a = 0; a < NU; a++) for (let b = 0; b < NV; b++) {
+    const p00 = P(a / NU, b / NV), p10 = P((a + 1) / NU, b / NV), p11 = P((a + 1) / NU, (b + 1) / NV), p01 = P(a / NU, (b + 1) / NV);
+    pos.push(...p00, ...p11, ...p10, ...p00, ...p01, ...p11);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.computeVertexNormals();
+  // Rippen etwas dunkler als die Rillen dazwischen
+  const col = new Float32Array(pos.length), c = new THREE.Color();
+  for (let k = 0; k < pos.length; k += 9) {
+    const x = (pos[k] + pos[k + 3] + pos[k + 6]) / 3, z = (pos[k + 2] + pos[k + 5] + pos[k + 8]) / 3 + R * 0.45;
+    c.set(color).multiplyScalar(0.8 + 0.28 * (1 - Math.abs(Math.sin(Math.atan2(x, z) * RIBS / 1.2))));
+    for (let q = 0; q < 9; q += 3) col.set([c.r, c.g, c.b], k + q);
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const ear = new THREE.BoxGeometry(R * 0.5, R * 0.08, R * 0.16).translate(0, R * 0.03, -R * 0.47); // „Öhrchen“ am Schloss
+  return mergeAll([g, paint(ear, new THREE.Color(color).multiplyScalar(0.85).getHex(), { shade: true })]);
+}
+
 function buildChest(scene, rng) {
   const group = new THREE.Group();
   group.rotation.set(0, 0.35, 0);
   scene.add(group);
   const U = 0.1;
-  const wood = 0xb5763d, woodD = 0x8a5527, gold = 0xffc93c;
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, emissive: 0x2a1a08 });
+  const wood = 0xb5763d, woodL = 0xc98a4b, woodD = 0x6e4320, gold = 0xffc93c, goldD = 0xd9a521, ink = 0x3a2410;
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, emissive: 0x2a1a08 });
   const glowMat = new THREE.MeshBasicMaterial({ vertexColors: true, color: hdr(0xffffff, 1.6) });
+  /** Quader in Voxel-Einheiten (y = Unterkante). */
+  const B = (w, h, d, x, y, z, c) => paint(new THREE.BoxGeometry(w * U, h * U, d * U).translate(x * U, (y + h / 2) * U, z * U), c, { shade: true });
 
-  const base = vox([
-    [0, 0, 0, 26, 12, 16, wood],
-    [0, 3.5, 8.05, 26, 0.6, 0.2, woodD], [0, 7.5, 8.05, 26, 0.6, 0.2, woodD],
-    [-10, 0, 0, 2, 12.2, 16.4, gold], [10, 0, 0, 2, 12.2, 16.4, gold],
-    [0, 8, 8.3, 3, 3.5, 0.8, gold], [0, 8.6, 8.75, 1, 1.4, 0.3, 0x3a2410],
-    [0, 11.4, 0, 23.5, 0.8, 13.5, 0xffe27a, true],
-  ], U);
-  const bm = new THREE.Mesh(base.geo, mat);
+  // --- Kasten: dunkler Kern, Planken mit Fugen, Eckpfosten, Goldecken, Goldbänder, Griffe, Schloss ---
+  const P = [], G = [];
+  P.push(B(24.6, 12, 14.6, 0, 0, 0, woodD));                                // Kern (sieht man in den Fugen)
+  P.push(B(26.4, 1, 16.4, 0, 0, 0, woodD));                                 // Fußleiste
+  for (let k = 0; k < 3; k++) {
+    const y = 1.2 + k * 3.65, c = k % 2 ? woodL : wood;
+    for (const sz of [-1, 1]) P.push(B(22.6, 3.3, 0.8, 0, y, sz * 7.6, c));     // vorne/hinten
+    for (const sx of [-1, 1]) P.push(B(0.8, 3.3, 12.6, sx * 12.6, y, 0, c));    // Seiten
+  }
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    P.push(B(2.4, 12, 2.4, sx * 12.2, 0, sz * 7.2, woodD));                     // Eckpfosten
+    for (const y of [-0.1, 9.95]) P.push(B(2.8, 2.2, 2.8, sx * 12.2, y, sz * 7.2, gold)); // Goldecken (oben etwas höher als der Rest, sonst Flackern)
+  }
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) P.push(B(1.8, 12.1, 0.5, sx * 6.5, 0, sz * 8.2, gold)); // Goldbänder vorne/hinten
+    // Griff an der Seite: Platte + Ring
+    P.push(B(0.5, 2.6, 3.4, sx * 13.2, 6.4, 0, goldD));
+    const ring = new THREE.TorusGeometry(1.5 * U, 0.32 * U, 6, 14); ring.rotateY(Math.PI / 2); ring.translate(sx * 13.6 * U, 5.6 * U, 0);
+    P.push(paint(ring, gold, { shade: true }));
+  }
+  P.push(B(4.2, 4.6, 0.6, 0, 6.6, 8.3, gold), B(1, 1.6, 0.3, 0, 7.6, 8.65, ink), B(0.5, 0.9, 0.3, 0, 6.9, 8.65, ink)); // Schloss mit Schlüsselloch
+  // Schatz innen: leuchtendes Gold, Münzstapel und Edelsteine (bleibt unter dem geschlossenen Deckel)
+  G.push(B(23.5, 0.7, 13.5, 0, 11.4, 0, 0xffb81c));
+  for (const [x, z, n] of [[-5, -1, 3], [-2, 2, 4], [3, -2, 2], [6, 1.5, 3], [1, 0, 5]]) {
+    for (let q = 0; q < n; q++) { const c = new THREE.CylinderGeometry(1.3 * U, 1.3 * U, 0.45 * U, 12); c.rotateZ((q % 2 ? 0.12 : -0.1)); c.translate((x + q * 0.15) * U, (12.3 + q * 0.5) * U, z * U); P.push(paint(c, q % 2 ? 0xffc93c : 0xf4a91a, { shade: true })); }
+  }
+  for (const [x, z, y, c] of [[-7, 2, 12.6, 0xff4d6d], [4, 3, 12.5, 0x4cc9f0], [8, -2, 12.4, 0x7ae582], [-3, -3, 12.5, 0xb07ef0]]) {
+    const gem = new THREE.OctahedronGeometry(1.1 * U); gem.scale(1, 1.3, 1); gem.translate(x * U, (y + 1) * U, z * U); G.push(paint(gem, c));
+  }
+  const bm = new THREE.Mesh(mergeAll(P), mat);
   bm.castShadow = bm.receiveShadow = true;
-  group.add(bm, new THREE.Mesh(base.glow, glowMat));
+  const gemMat = new THREE.MeshBasicMaterial({ vertexColors: true, color: hdr(0xffffff, 1.1) }); // Edelsteine leuchten, behalten aber ihre Farbe
+  group.add(bm, new THREE.Mesh(G.shift(), glowMat), new THREE.Mesh(mergeAll(G), gemMat));
 
+  // --- Deckel: gewölbt wie ein Fass (Planken), Goldbänder über die Wölbung, Goldkante, Schließblech ---
   const lidPivot = new THREE.Group();
   lidPivot.position.set(0, 12 * U, -8 * U);
   group.add(lidPivot);
-  const lid = vox([
-    [0, 0, 8, 26, 3, 16, wood], [0, 3, 8, 25, 2.2, 14, wood], [0, 5.2, 8, 23, 1.4, 11, woodD],
-    [-10, 0, 8, 2, 6.8, 16.4, gold], [10, 0, 8, 2, 6.8, 16.4, gold],
-  ], U);
-  const lm = new THREE.Mesh(lid.geo, mat);
+  /** Bogen (halbe Ellipse über der Tiefe 0..16) als Körper entlang x, von x0 bis x1. */
+  const arch = (rz, ry, x0, x1, color, planks = false, strip = 0) => {
+    const sh = new THREE.Shape(), N = 14;
+    sh.moveTo(8 - rz, 0);
+    for (let i = 1; i <= N; i++) { const t = Math.PI - (i / N) * Math.PI; sh.lineTo(8 + Math.cos(t) * rz, Math.sin(t) * ry); }
+    // strip > 0: nur ein Band über der Wölbung (innen zurück), sonst ganzer Körper
+    if (strip) for (let i = N; i >= 0; i--) { const t = Math.PI - (i / N) * Math.PI; sh.lineTo(8 + Math.cos(t) * (rz - strip), Math.sin(t) * (ry - strip)); }
+    else sh.lineTo(8 - rz, 0);
+    const g = new THREE.ExtrudeGeometry(sh, { depth: x1 - x0, bevelEnabled: false, curveSegments: 1 });
+    // (z, y, e) -> (x1 - e, y, z): Achsen tauschen ohne die Flächen umzudrehen
+    g.applyMatrix4(new THREE.Matrix4().set(0, 0, -1, x1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1));
+    g.scale(U, U, U);
+    const n = g.index ? g.toNonIndexed() : g; n.computeVertexNormals();
+    if (!planks) return paint(n, color, { shade: true });
+    // Planken: Farbe je Dreieck nach dem Winkel auf der Wölbung (Fugen dunkel)
+    const pa = n.attributes.position, col = new Float32Array(pa.count * 3), c = new THREE.Color();
+    for (let k = 0; k < pa.count; k += 3) {
+      let zc = 0, yc = 0, xc = 0;
+      for (let q = 0; q < 3; q++) { xc += pa.getX(k + q) / 3; yc += pa.getY(k + q) / 3; zc += pa.getZ(k + q) / 3; }
+      const end = Math.abs(Math.abs(xc / U) - Math.abs(x0)) < 0.01 || Math.abs(Math.abs(xc / U) - Math.abs(x1)) < 0.01;
+      const ang = Math.atan2(yc / U / ry, (zc / U - 8) / rz), band = Math.floor(((ang / Math.PI) * 5));
+      c.set(end ? woodD : band % 2 ? woodL : wood);
+      for (let q = 0; q < 3; q++) col.set([c.r, c.g, c.b], (k + q) * 3);
+    }
+    n.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    return n;
+  };
+  const L = [];
+  L.push(arch(8, 5.2, -12.8, 12.8, wood, true));
+  L.push(B(26.4, 1, 16.4, 0, -0.2, 8, woodD));                                   // untere Deckelkante
+  for (const x of [-6.5, 6.5]) L.push(arch(8.35, 5.55, x - 0.9, x + 0.9, gold, false, 0.6)); // Goldbänder über die Wölbung
+  for (const x of [-12.4, 12.4]) L.push(arch(8.3, 5.5, x - 0.7, x + 0.7, gold, false, 0.7)); // Goldkanten an den Enden (nur Rand)
+  L.push(B(2.4, 3.4, 0.5, 0, -2.6, 16.6, gold), B(1, 1, 0.4, 0, -1.2, 16.95, goldD)); // Schließblech über dem Schloss
+  const lm = new THREE.Mesh(mergeAll(L), mat);
   lm.castShadow = true;
   lidPivot.add(lm);
 
-  // Münzen als kleine Sticker
-  const coinStk = sticker(64, 64, (ctx) => {
-    ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.arc(32, 32, 32, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#ffd23f'; ctx.beginPath(); ctx.arc(32, 32, 25, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#f59e0b'; ctx.fillRect(28, 16, 8, 32);
-  }, { outline: 5, thick: 2 });
-  const coinTex = toTexture(coinStk.canvas);
-  const coins = [];
+  // Münzen auf dem Sand: echte flache Goldmünzen mit erhabenem Rand, einzeln, schräg oder gestapelt
+  const coinParts = [];
+  const coin = (x, y, z, rx, rz, ry) => {
+    const rim = new THREE.CylinderGeometry(0.15, 0.15, 0.04, 18), face = new THREE.CylinderGeometry(0.115, 0.115, 0.05, 18);
+    const mark = new THREE.BoxGeometry(0.035, 0.052, 0.12);   // eingeprägter Strich wie früher auf dem Bild
+    for (const [g, c] of [[rim, 0xf0a61c], [face, 0xffd23f], [mark, 0xf0a61c]]) {
+      g.rotateY(ry); g.rotateX(rx); g.rotateZ(rz); g.translate(x, y, z);
+      coinParts.push(paint(g, c, { shade: true }));
+    }
+  };
   for (let i = 0; i < 14; i++) {
-    const a = rng() * Math.PI * 2, d = range(rng, 1.5, 2.5);
-    const g = stickerGeometry(coinStk, 0.32, 'center');
-    g.rotateX(-Math.PI / 2 + range(rng, -0.3, 0.3));
-    g.translate(Math.cos(a) * d, 0.04 + i * 0.002, Math.sin(a) * d);
-    coins.push(g);
+    const a = rng() * Math.PI * 2;
+    let d = range(rng, 1.5, 2.5);
+    const tilt = range(rng, -0.3, 0.3);
+    // nicht unter die Truhe (Grundfläche samt Goldecken, Truhe ist um 0.35 gedreht): sonst nach außen schieben
+    const under = (dd) => { const x = Math.cos(a) * dd, z = Math.sin(a) * dd, c = Math.cos(0.35), sn = Math.sin(0.35);
+      return Math.abs(x * c - z * sn) < 1.36 + 0.22 && Math.abs(x * sn + z * c) < 0.86 + 0.22; };
+    while (under(d)) d += 0.05;
+    const x = Math.cos(a) * d, z = Math.sin(a) * d;
+    if (i % 5 === 0) for (let q = 0; q < 3 + (i % 2); q++) coin(x + q * 0.012, 0.02 + q * 0.042, z - q * 0.01, q * 0.03, -q * 0.02, a + q); // Stapel
+    else coin(x, 0.02 + Math.abs(tilt) * 0.15, z, tilt * 0.6, tilt * 0.4, a * 3);                  // einzeln, leicht schräg im Sand
   }
-  scene.add(new THREE.Mesh(mergeAll(coins, ['position', 'normal', 'uv']), cutMat(coinTex, 0, 1, 0.5)));
+  const coinMesh = new THREE.Mesh(mergeAll(coinParts), new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.55, roughness: 0.35, emissive: 0x3a2400 }));
+  coinMesh.castShadow = coinMesh.receiveShadow = true;
+  scene.add(coinMesh);
 
   // Großer Papierstern
   const starStk = drawStar();
@@ -791,26 +1317,84 @@ function buildChest(scene, rng) {
    ========================================================= */
 function buildClam(scene, rng, x, z) {
   const g = new THREE.Group();
-  const y = heightAt(x, z);
-  g.position.set(x, y - 0.05, z);
-  g.rotation.y = 0.25;
+  // auf den höchsten Punkt unter der Schale setzen – sonst versinkt sie am Hang halb im Sand
+  let y = heightAt(x, z);
+  for (let k = 0; k < 10; k++) { const a = (k / 10) * Math.PI * 2; y = Math.max(y, heightAt(x + Math.cos(a) * 1.0, z + Math.sin(a) * 0.9)); }
+  g.position.set(x, y - 0.03, z);
+  g.rotation.set(-0.08, 0.25, 0, 'YXZ'); // vorne etwas angehoben: man sieht in die Öffnung
   scene.add(g);
-  const lowStk = drawClamShell(rng, false), topStk = drawClamShell(rng, true);
-  const lowT = toTexture(lowStk.canvas), topT = toTexture(topStk.canvas);
-  const W = 2.4;
-  const lower = cutMesh(stickerGeometry(lowStk, W, 'bottom'), lowT);
+  drawClamShell(rng, false); drawClamShell(rng, true); // nur würfeln wie früher, damit der übrige Aufbau gleich bleibt
+  // Echte Schalen statt Papp-Aufsteller: zwei gewölbte Fächer mit Rippen und Wellenrand, innen perlmuttfarben
+  const R = 1.2, RZ = 1.0, RIBS = 9;
+  function shell(sign, outer, inner, D) {
+    // ovale Schale um ihre Mitte (hinten rund statt spitz), Rippen laufen vom Schloss hinten aus
+    const NU = 44, NV = 9, P = (u, v, off) => {
+      const phi = (u - 0.5) * Math.PI * 2;
+      const x0 = Math.sin(phi) * R * v, z0 = Math.cos(phi) * RZ * v;
+      const fan = Math.atan2(x0, z0 + RZ), front = 0.35 + 0.65 * Math.max(0, Math.cos(phi));
+      const wav = 1 + 0.04 * Math.cos(fan * RIBS * 2) * front;              // Wellenrand vorne
+      const rib = 0.08 * Math.abs(Math.sin(fan * RIBS)) * v * front;       // Rippen
+      const bulge = D * Math.pow(Math.max(0, 1 - v * v), 0.7);
+      const zig = 0.07 * Math.sin(fan * RIBS * 2) * Math.pow(v, 6) * front; // Zickzack-Rand: beide Schalen greifen ineinander
+      return [x0 * wav, sign * (bulge + rib - off * (1 - v * v)) + zig, z0 * wav];
+    };
+    const out = [], inn = [];
+    for (let a = 0; a < NU; a++) for (let b = 0; b < NV; b++) {
+      for (const [list, off] of [[out, 0], [inn, 0.05]]) {
+        const p00 = P(a / NU, b / NV, off), p10 = P((a + 1) / NU, b / NV, off), p11 = P((a + 1) / NU, (b + 1) / NV, off), p01 = P(a / NU, (b + 1) / NV, off);
+        list.push(...p00, ...p10, ...p11, ...p00, ...p11, ...p01);
+      }
+    }
+    const mk = (pos, color, flip) => {
+      if (flip) for (let k = 0; k < pos.length; k += 9) for (let q = 0; q < 3; q++) [pos[k + 3 + q], pos[k + 6 + q]] = [pos[k + 6 + q], pos[k + 3 + q]];
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      geo.computeVertexNormals();
+      // Außen: Rippen dunkler als die Rillen dazwischen (je Dreieck nach seinem Winkel im Fächer)
+      const c = new THREE.Color(), col = new Float32Array(pos.length);
+      for (let k = 0; k < pos.length; k += 9) {
+        const x = (pos[k] + pos[k + 3] + pos[k + 6]) / 3, z = (pos[k + 2] + pos[k + 5] + pos[k + 8]) / 3;
+        const ridge = Math.abs(Math.sin(Math.atan2(x, z + RZ) * RIBS));
+        c.set(color).multiplyScalar(color === 0xfbe3ee ? 1 : 0.78 + 0.3 * (1 - ridge));
+        for (let q = 0; q < 9; q += 3) col.set([c.r, c.g, c.b], k + q);
+      }
+      geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      return geo;
+    };
+    // Außenseite zeigt weg von der Öffnung, Innenseite zur Öffnung
+    return mergeAll([mk(out, outer, sign > 0), mk(inn, inner, sign < 0)]);
+  }
+  const shellMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, flatShading: true });
+  const DL = 0.55, DU = 0.4; // untere Schale tiefer (trägt die Perle), Deckel flacher
+  const lower = new THREE.Mesh(shell(-1, 0x4aa89b, 0xfbe3ee, DL), shellMat);
+  lower.position.set(0, DL, 0);
+  lower.castShadow = lower.receiveShadow = true;
   g.add(lower);
-  const lowH = lowStk.h * (W / lowStk.w);
   const hinge = new THREE.Group();
-  hinge.position.set(0, lowH * 0.92, -0.06);
+  hinge.position.set(0, DL, -RZ); // Schloss hinten am Rand
   g.add(hinge);
-  const upper = cutMesh(stickerGeometry(topStk, W, 'bottom'), topT);
+  const upper = new THREE.Mesh(shell(1, 0x5cc4b4, 0xfbe3ee, DU), shellMat);
+  upper.castShadow = true;
+  upper.position.z = RZ;
   hinge.add(upper);
+  // Schloss: ein dickes Band hinten, das beide Schalen zusammenhält (sitzt fest an der unteren Schale,
+  // der Deckel dreht genau um seine Achse) – mit zwei kleinen Buckeln oben und unten
+  {
+    const band = new THREE.CylinderGeometry(0.13, 0.13, 0.9, 12); band.rotateZ(Math.PI / 2);
+    const capL = new THREE.SphereGeometry(0.13, 10, 6).translate(-0.45, 0, 0), capR = new THREE.SphereGeometry(0.13, 10, 6).translate(0.45, 0, 0);
+    const knobs = [new THREE.SphereGeometry(0.15, 10, 6).scale(1.5, 0.8, 0.8).translate(0, -0.1, -0.1), new THREE.SphereGeometry(0.14, 10, 6).scale(1.5, 0.8, 0.8).translate(0, 0.1, -0.1)]; // nach hinten, nicht in die Öffnung
+    const parts = [band, capL, capR].map((q) => paint(q.toNonIndexed(), 0x2f7f74, { shade: true }));
+    parts.push(...knobs.map((q) => paint(q.toNonIndexed(), 0x3d978a, { shade: true })));
+    const lig = new THREE.Mesh(mergeAll(parts), shellMat);
+    lig.position.set(0, DL, -RZ + 0.02);
+    lig.castShadow = true;
+    g.add(lig);
+  }
   const pearl = new THREE.Mesh(
     new THREE.SphereGeometry(0.24, 20, 14),
     new THREE.MeshStandardMaterial({ color: 0xfff4fb, roughness: 0.15, metalness: 0.1, emissive: 0x3a3040 }),
   );
-  pearl.position.set(0, lowH * 0.98, -0.03); // liegt IN der Muschel, guckt über den Rand
+  pearl.position.set(0, 0.05 + 0.25, 0.1); // liegt in der unteren Schale
   pearl.castShadow = true;
   g.add(pearl);
   const glint = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -823,9 +1407,7 @@ function buildClam(scene, rng, x, z) {
     const cyc = (t + 3) % 11;
     const target = cyc > 5 && cyc < 9.5 ? 1 : 0;
     open += (target - open) * Math.min(1, dt * 1.6);
-    hinge.rotation.x = -open * 0.75;
-    hinge.position.y = lowH * 0.92 + open * 0.18;
-    pearl.position.y = lowH * (0.9 + open * 0.12);
+    hinge.rotation.x = -(0.12 + open * 0.6); // immer einen Spalt offen, ganz offen zeigt sie die Perle
     glint.material.opacity = open * (0.55 + 0.45 * Math.sin(t * 3));
   };
 }
