@@ -46,6 +46,7 @@
     </div>
   </div>
   <script>I18N.apply(document.getElementById('loader'));</script>
+  <script src="js/intro-draw.js"></script>
   <script src="js/intro.js"></script>
 
   <!-- Titel -->
@@ -74,6 +75,7 @@
       <input id="search" type="search" placeholder="Finde deine Krabbe… (@name)" data-i18n-attr="placeholder:search.placeholder" autocomplete="off" spellcheck="false" />
       <ul id="search-results"></ul>
     </div>
+    <button id="find-me" class="btn mini find-me hidden" type="button"><span data-ic="crab"></span> <span data-i18n="find.btn">Bist du schon im Meer?</span></button>
     <div id="wait-chip" class="panel hidden" role="status">
       <span class="wait-main"><span class="wait-egg" data-ic="egg"></span><span><b id="wait-name"></b><small id="wait-text"></small></span></span>
       <button id="wait-other" class="btn mini" data-i18n="wait.other">Anderer Name</button>
@@ -125,7 +127,7 @@
       <button id="card-wave" class="btn" data-i18n="card.wave">Winken</button>
       <button id="card-share" class="btn btn-share" data-i18n="card.share">Teilen</button>
     </div>
-    <button id="card-mine" class="btn card-mine" data-i18n="card.mine">Das bin ich</button>
+    <button id="card-mine" class="btn card-mine" data-i18n="card.mine" data-i18n-attr="title:card.mineTitle" title="Als deine Krabbe merken – nur in diesem Browser">Meine Krabbe</button>
   </div>
 
   <!-- Stern-Ablauf -->
@@ -137,7 +139,7 @@
       <ol class="join-steps">
         <li><b data-i18n="join.star">Stern geben</b><span data-i18n="join.starText">Gib dem Projekt auf GitHub einen Stern.</span>
           <a id="join-star" class="btn btn-star" href="#" target="_blank" rel="noopener" data-i18n="join.starBtn">Zu GitHub</a></li>
-        <li><b data-i18n="join.name">Wie heißt du auf GitHub?</b>
+        <li class="join-name-step"><b data-i18n="join.name">Wie heißt du auf GitHub?</b>
           <form id="join-form" autocomplete="off">
             <input id="join-name" type="text" placeholder="@deinname" spellcheck="false" autocapitalize="off" maxlength="40" aria-label="GitHub-Name" data-i18n-attr="placeholder:join.placeholder,aria-label:join.nameLabel" />
             <button class="btn" type="submit" data-i18n="join.go">Los!</button>
@@ -145,6 +147,7 @@
           <span id="join-msg" class="join-msg" role="alert"></span></li>
         <li><b data-i18n="join.hatch">Deine Krabbe schlüpft</b><span data-i18n="join.hatchText">Das dauert 1 bis 3 Minuten – die Seite schaut von selbst nach.</span></li>
       </ol>
+      <p class="join-find-note" data-i18n="find.note">Die Seite merkt sich deine Krabbe – nur in diesem Browser, ohne Anmeldung.</p>
       <p class="join-note" data-i18n="join.note">Kein Stern nötig, um hier zu stöbern: Das Meer ist ein Bild aller Stargazer.</p>
     </div>
   </div>
@@ -181,8 +184,16 @@
         bar.setAttribute('aria-valuenow', Math.floor(shown));
         if ((shown < 100 || target < 100) && !window.__seaFailed) setTimeout(draw, 50);
       }
+      // Zeitmessung für ?ladezeit (zeigt nach dem Laden, wie lange welcher Schritt gedauert hat)
+      var t0 = performance.now(), lastLabel = '', lastGap = t0;
+      window.__loadT0 = t0;
+      window.__loadLog = []; window.__loadStalls = [];
+      (function watch() { var n = performance.now(); if (n - lastGap > 250) window.__loadStalls.push([Math.round(lastGap - t0), Math.round(n - lastGap), lastLabel]); lastGap = n; if (!window.__seaReady) requestAnimationFrame(watch); })();
       window.__load = {
-        set: function (p, label) { if (p < target) return; target = Math.min(100, p); if (label) step.textContent = /!$/.test(label) ? label : label + '…'; draw(); },
+        set: function (p, label) {
+          if (label && label !== lastLabel) { lastLabel = label; window.__loadLog.push([Math.round(performance.now() - t0), Math.round(p), label]); }
+          if (p < target) return; target = Math.min(100, p); if (label) step.textContent = /!$/.test(label) ? label : label + '…'; draw();
+        },
         get value() { return Math.floor(shown); },
       };
       // Module zählen, sobald sie heruntergeladen sind (three.js + Addons + eigene Dateien ≈ 22)

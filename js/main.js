@@ -202,6 +202,39 @@ controls.addEventListener('end', () => {
   clearTimeout(idleTimer);
 });
 
+/* ---------- WASD / Pfeiltasten: über die Insel gleiten (wie bei Sims) ---------- */
+const PAN_KEYS = { KeyW: [0, 1], ArrowUp: [0, 1], KeyS: [0, -1], ArrowDown: [0, -1], KeyA: [-1, 0], ArrowLeft: [-1, 0], KeyD: [1, 0], ArrowRight: [1, 0] };
+const keysHeld = new Set(), keyVel = new THREE.Vector2(), keyWant = new THREE.Vector2();
+const keyFwd = new THREE.Vector3(), keyMove = new THREE.Vector3();
+const typing = (e) => { const el = e.target; return !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)); };
+addEventListener('keydown', (e) => {
+  if (!PAN_KEYS[e.code] || typing(e) || e.ctrlKey || e.metaKey || e.altKey || albumOpen() || fly?.intro) return;
+  e.preventDefault(); // Pfeiltasten scrollen sonst die Seite
+  keysHeld.add(e.code);
+  if (fly) fly = null;
+  if (following) { following = false; setFollowBtn(false); }
+  controls.autoRotate = false;
+  $('hint').style.opacity = 0;
+  coachDone('drag');
+});
+addEventListener('keyup', (e) => keysHeld.delete(e.code));
+addEventListener('blur', () => keysHeld.clear());
+/** Kamera und Blickpunkt gemeinsam in Blickrichtung (W/S) bzw. seitlich (A/D) schieben, sanft an- und auslaufend. */
+function panByKeys(dt) {
+  keyWant.set(0, 0);
+  for (const k of keysHeld) keyWant.x += PAN_KEYS[k][0], keyWant.y += PAN_KEYS[k][1];
+  if (keyWant.lengthSq() > 0) keyWant.normalize();
+  keyVel.lerp(keyWant, Math.min(1, dt * (keyWant.lengthSq() ? 7 : 12)));
+  if (!keyWant.lengthSq() && keyVel.lengthSq() < 4e-4) { keyVel.set(0, 0); return; } // ausgerollt
+  keyFwd.subVectors(controls.target, camera.position).setY(0);
+  if (keyFwd.lengthSq() < 1e-8) return;
+  keyFwd.normalize();
+  const speed = THREE.MathUtils.clamp(camera.position.distanceTo(controls.target) * 0.8, 4, 24); // weiter weg = schneller
+  keyMove.set(keyFwd.x * keyVel.y - keyFwd.z * keyVel.x, 0, keyFwd.z * keyVel.y + keyFwd.x * keyVel.x).multiplyScalar(speed * dt);
+  camera.position.add(keyMove);
+  controls.target.add(keyMove);
+}
+
 /* ---------- Saison & Tageszeit ---------- */
 // Testen: ?saison=winter|halloween|keine  und  ?zeit=22 (Uhrzeit 0–24)
 function seasonFor(d = today()) {
@@ -330,7 +363,7 @@ async function fetchCrabs() {
    ========================================================= */
 const crabs = new Map(); // id -> Crab
 const hitTargets = [];
-let mineId = Number(store.get('meineKrabbe')) || null; // "Das bin ich" (nur in diesem Browser)
+let mineId = Number(store.get('meineKrabbe')) || null; // "Meine Krabbe" (nur in diesem Browser)
 
 const ctx = {
   heightAt,
@@ -807,7 +840,20 @@ function focusCrab(crab) {
   controls.autoRotate = false;
 }
 
-$('card').querySelector('.card-close').addEventListener('click', () => select(null));
+// Karte zu (X): Auswahl weg und Kamera ein Stück zurück, damit man wieder mehr vom Meer sieht
+const ZOOM_OUT_DIST = 16;
+function zoomOut() {
+  const off = camera.position.clone().sub(controls.target);
+  if (off.length() >= ZOOM_OUT_DIST) return;
+  off.y = Math.max(off.y, off.length() * 0.35);
+  off.setLength(Math.min(ZOOM_OUT_DIST, controls.maxDistance));
+  fly = {
+    t: 0, dur: REDUCED ? 0.001 : 1.1,
+    fromPos: camera.position.clone(), fromTarget: controls.target.clone(),
+    toTarget: controls.target.clone(), toPos: controls.target.clone().add(off),
+  };
+}
+$('card').querySelector('.card-close').addEventListener('click', () => { select(null); if (!fly || fly.crab) zoomOut(); });
 function setFollowBtn(on) {
   $('card-follow').classList.toggle('on', on);
   $('card-follow').innerHTML = tr(on ? 'card.following' : 'card.follow');
@@ -1003,7 +1049,7 @@ canvas.addEventListener('pointermove', (e) => {
 });
 
 /* =========================================================
-   Meine Krabbe ("Das bin ich" – nur in diesem Browser gemerkt)
+   Meine Krabbe (nur in diesem Browser gemerkt, kein Login)
    ========================================================= */
 function mineCrab() { return mineId != null ? crabs.get(mineId) || null : null; }
 function setMine(id) {
@@ -1013,6 +1059,7 @@ function setMine(id) {
   mineCrab()?.setMine(true);
   rememberMineStage();
   updateMineBtn();
+  updateFindMe();
 }
 function updateMineBtn() {
   const me = mineCrab();
@@ -1072,13 +1119,28 @@ function greetMine() {
    ========================================================= */
 const join = $('join');
 $('join-star').href = repoUrl;
-function openJoin() {
+/**
+ * mode 'join': Stern geben → Namen eingeben → Krabbe schlüpft.
+ * mode 'find': nur den Namen fragen („Bist du schon im Meer?“) und die Krabbe merken.
+ */
+let joinMode = 'join';
+function openJoin(mode = 'join', name = null) {
+  joinMode = mode;
+  join.classList.toggle('find', mode === 'find');
+  const title = $('join-title');
+  title.dataset.i18n = mode === 'find' ? 'find.title' : 'join.title';
+  title.textContent = tr(title.dataset.i18n);
   join.classList.remove('hidden');
   const n = $('join-name');
-  n.value = waitFor?.name || '';
+  n.value = name ?? waitFor?.name ?? '';
   $('join-msg').textContent = '';
   setTimeout(() => n.focus(), 50);
 }
+/** „Bist du schon im Meer?“ nur zeigen, solange man keine eigene Krabbe hat und auf keine wartet. */
+function updateFindMe() {
+  $('find-me').classList.toggle('hidden', !!mineCrab() || !!waitFor);
+}
+$('find-me').addEventListener('click', () => openJoin('find'));
 function closeJoin() { join.classList.add('hidden'); }
 join.querySelector('.join-close').addEventListener('click', closeJoin);
 join.querySelector('.join-backdrop').addEventListener('click', closeJoin);
@@ -1088,6 +1150,12 @@ $('join-form').addEventListener('submit', (e) => {
   const name = $('join-name').value.trim().replace(/^@/, '');
   if (!/^[a-z\d](?:[a-z\d-]{0,38})$/i.test(name)) { $('join-msg').textContent = tr('join.badName'); return; }
   const found = allCrabsData.find((c) => c.login.toLowerCase() === name.toLowerCase());
+  if (joinMode === 'find' && !(found && crabs.get(found.id))) {
+    // noch nicht im Meer → die Schritte zum Stern zeigen, Name bleibt stehen
+    openJoin('join', name);
+    $('join-msg').textContent = tr('find.missing', { name });
+    return;
+  }
   closeJoin();
   if (found && crabs.get(found.id)) {
     stopWaiting();
@@ -1139,11 +1207,12 @@ function stopWaiting() {
 function updateWaitChip(slow = false) {
   const chip = $('wait-chip');
   chip.classList.toggle('hidden', !waitFor);
+  updateFindMe();
   if (!waitFor) return;
   $('wait-name').textContent = `@${waitFor.name}`;
   $('wait-text').textContent = tr(slow ? 'wait.slow' : 'wait.soon');
 }
-$('wait-other').addEventListener('click', openJoin);
+$('wait-other').addEventListener('click', () => openJoin());
 $('wait-cancel').addEventListener('click', () => { stopWaiting(); toast(tr('toast.stopWait')); });
 $('wait-chip').addEventListener('click', (e) => { if (e.target === e.currentTarget || e.target.closest('.wait-main')) flyTo(EGG_POS); });
 
@@ -1411,14 +1480,56 @@ if (document.fonts?.load) {
 LOAD.set(80, tr('load.stars'));
 await syncCrabs(true);
 updateMineBtn();
+updateFindMe();
 if (waitFor) { showEgg(); beginFastPoll(); updateWaitChip(); }
 LOAD.set(90, tr('load.shaders'));
 await tick();
 // Shader vorab übersetzen (verhindert Ruckler beim ersten Bild)
 try {
   if (renderer.extensions.has('KHR_parallel_shader_compile')) await Promise.race([renderer.compileAsync(scene, camera), new Promise((r) => setTimeout(r, 4000))]);
-  else renderer.compile(scene, camera);
+  else {
+    // ohne paralleles Übersetzen (z. B. Safari): Stück für Stück, dazwischen läuft die Ladeanzeige weiter
+    const parts = scene.children.slice();
+    let mark = performance.now();
+    for (let i = 0; i < parts.length; i++) {
+      renderer.compile(parts[i], camera, scene);
+      if (performance.now() - mark > 40) { LOAD.set(90 + (4 * i) / parts.length); await tick(); mark = performance.now(); }
+    }
+  }
 } catch { /* egal – dann eben beim ersten Bild */ }
+// Probebild hinter dem Ladebildschirm: Schatten, Nachbearbeitung und alle sichtbaren Dinge werden jetzt
+// fertig gemacht (sonst friert das allererste echte Bild ein und die Anzeige hängt bei ~90 %)
+LOAD.set(94, tr('load.warm'));
+await tick();
+// Bilder (Texturen) vorab in kleinen Portionen auf die Grafikkarte laden – sonst passiert alles im ersten Bild auf einmal
+try {
+  const texs = new Set();
+  scene.traverse((o) => { for (const m of [].concat(o.material || [])) for (const k of ['map', 'emissiveMap', 'alphaMap', 'normalMap']) if (m[k]?.isTexture) texs.add(m[k]); });
+  let mark = performance.now();
+  for (const tx of texs) {
+    renderer.initTexture(tx);
+    if (performance.now() - mark > 30) { await tick(); mark = performance.now(); }
+  }
+} catch { /* egal */ }
+await tick();
+try {
+  const keep = camera.position.clone(), q = camera.quaternion.clone();
+  // in kleinen Schritten mit Pausen dazwischen (viele kurze statt einem langen Hänger):
+  // erst nur die Schatten, dann das Bild ohne Nachbearbeitung, dann mit, dann weitere Blickwinkel
+  const look = (pos, at) => { camera.position.set(...pos); camera.lookAt(...at); camera.updateMatrixWorld(); };
+  const tiny = () => { renderer.setScissorTest(true); renderer.setScissor(0, 0, 1, 1); renderer.render(scene, camera); renderer.setScissorTest(false); };
+  const steps = [
+    () => { look([0, 11, 34], [0, 1.4, 0]); renderer.shadowMap.needsUpdate = true; tiny(); },   // Schatten + alles Sichtbare (nur 1 Pixel malen)
+    () => { look([0, 30, 20], [0, 0, 0]); tiny(); },                                            // Blick von oben: der Rest der Insel
+    () => { look(keep.toArray(), [0, 4, 2]); if (SW.fx) composer.render(0.016); },              // Nachbearbeitung (Leuchten) einmal ganz
+  ];
+  for (let i = 0; i < steps.length; i++) {
+    steps[i]();
+    LOAD.set(94 + ((i + 1) * 4) / (steps.length + 1));
+    await tick(); // zwischendurch darf die Ladeanimation weiterlaufen
+  }
+  camera.position.copy(keep); camera.quaternion.copy(q); camera.updateMatrixWorld();
+} catch { /* egal */ }
 LOAD.set(98, tr('load.almost'));
 setInterval(() => { if (!document.hidden) syncCrabs(false); }, POLL_MS);
 
@@ -1502,6 +1613,7 @@ function frame() {
     // Korrektur unten die Kamera hoch und die Steuerung zieht sie wieder runter (Ruckeln)
     [controls.minPolarAngle, controls.maxPolarAngle] = polarLimits();
     touch.update(dt);
+    panByKeys(dt);
     controls.update();
     keepInSea();
   }
@@ -1517,12 +1629,26 @@ function frame() {
     first = false;
     LOAD.set(100, tr('load.done'));
     document.documentElement.dataset.bereit = '1'; // für die automatischen Tests
+    window.__seaReady = true;
+    if (params.has('ladezeit')) showLoadTimes();
     // große Blasenwolke wischt den Ladebildschirm weg, dahinter beginnt der Tauchflug
     window.__introBurst?.();
     setTimeout(() => $('loader').classList.add('fade'), REDUCED ? 0 : 450);
     setTimeout(() => $('loader').remove(), REDUCED ? 1000 : 1500);
   }
   requestAnimationFrame(frame);
+}
+
+/** ?ladezeit: Liste der Ladeschritte mit Zeit und längsten Hängern (zum Ausmessen auf dem Handy). */
+function showLoadTimes() {
+  const log = window.__loadLog || [], stalls = (window.__loadStalls || []).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const el = document.createElement('pre');
+  el.style.cssText = 'position:fixed;left:8px;top:8px;z-index:99;background:rgba(0,0,0,.78);color:#fff;font:11px/1.5 monospace;padding:10px 12px;border-radius:10px;max-width:92vw;white-space:pre-wrap;pointer-events:auto';
+  el.textContent = 'Ladeschritte (ms seit Start)\n' + log.map(([ms, p, l]) => `${String(ms).padStart(6)}  ${String(p).padStart(3)} %  ${l}`).join('\n')
+    + `\n${String(Math.round(performance.now() - (window.__loadT0 || 0))).padStart(6)}  fertig\n\nLängste Hänger (Start, Dauer, Schritt)\n` + stalls.map(([at, d, l]) => `${String(at).padStart(6)}  ${String(d).padStart(5)} ms  ${l}`).join('\n')
+    + `\n\n${navigator.userAgent}\nGPU: ${gpuName || '?'}`;
+  el.addEventListener('click', () => el.remove());
+  document.body.appendChild(el);
 }
 
 /* ---------- Namensschilder: nur die nächsten, ohne Überlappung ---------- */

@@ -49,7 +49,7 @@ The clock starts with your first star and is the same for every visitor. In the 
 ## What’s in the sea
 
 - Crabs walk, dance, sleep, greet each other, fall in love and make room when you click one
-- 🥚 Star flow: the egg cracks, a baby crab hatches, 🐣 it grows and its hat is revealed after 2 days, 💗 “That’s me”: on your next visit the site greets you at your crab
+- 🥚 Star flow: the egg cracks, a baby crab hatches, 🐣 it grows and its hat is revealed after 2 days, 💗 “Already in the sea?”: enter your GitHub name once and on your next visit the site greets you at your crab
 - 📤 A trading card for every crab to share, 📖 a collector’s album with all variants
 - 🌙 Day and night based on your local time, 🎄 winter and 🎃 Halloween decorations, 🎈 crab day on the anniversary of your star
 - ⭐ Crab of the day, a treasure chest with confetti, quiet underwater sounds (off by default)
@@ -71,7 +71,7 @@ No. It is rolled right away, but for the first 2 days the hat is stored only **e
 Your crab is hidden (within 6 hours at most). If you star the project again, **exactly the same** crab comes back.
 
 **Which data is shown?**
-Only your public GitHub name, your public account ID and the time of your star. If you remove your star, your name is deleted from the file. The site sets no cookies and does not count visitors. Settings like “That’s me”, the sound or the language stay in your own browser only.
+Only your public GitHub name, your public account ID and the time of your star. If you remove your star, your name is deleted from the file. The site sets no cookies and does not count visitors. Settings like “My crab”, the sound or the language stay in your own browser only.
 
 **Do I have to give a star to take part?**
 No, the sea is open to everyone. It is a picture of everyone who starred the project.
@@ -144,7 +144,7 @@ Note: GitHub disables scheduled workflows in public repos after 60 days without 
 | `js/card.js`, `js/album.js` | Trading card and collector’s album |
 | `js/intro.js` | Dive while loading |
 | `js/i18n.js`, `js/lang.js` | All texts in German and English, language switch |
-| `js/sound.js` | Underwater sounds (real recordings, CC0) |
+| `js/sound.js` | Underwater ambient pad and bubbles (CC0) |
 | `crabs.json` | All crabs (maintained by the Action) |
 | `data/rarities.json` | Rarities, hats, chances |
 | `tests/` | Automated tests |

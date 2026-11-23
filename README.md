@@ -49,7 +49,7 @@ Die Zeit läuft ab deinem ersten Stern und ist für alle Besucher gleich. Im Sam
 ## Was es im Meer gibt
 
 - Krabben laufen, tanzen, schlafen, grüßen sich, verlieben sich und machen Platz, wenn du eine anklickst
-- 🥚 Stern-Ablauf: Ei bricht auf, Babykrabbe schlüpft, 🐣 Wachsen mit Hut-Enthüllung nach 2 Tagen, 💗 „Das bin ich“: die Seite begrüßt dich beim nächsten Besuch bei deiner Krabbe
+- 🥚 Stern-Ablauf: Ei bricht auf, Babykrabbe schlüpft, 🐣 Wachsen mit Hut-Enthüllung nach 2 Tagen, 💗 „Bist du schon im Meer?“: einmal den GitHub-Namen eingeben, dann begrüßt dich die Seite beim nächsten Besuch bei deiner Krabbe
 - 📤 Sammelkarte jeder Krabbe zum Teilen, 📖 Sammelalbum mit allen Sorten
 - 🌙 Tag und Nacht nach deiner Uhrzeit, 🎄 Winter- und 🎃 Halloween-Deko, 🎈 Krabbentag am Jahrestag des Sterns
 - ⭐ Krabbe des Tages, Schatzkiste mit Konfetti, leise Unterwasser-Geräusche (standardmäßig aus)
@@ -71,7 +71,7 @@ Nein. Gewürfelt wird zwar sofort beim Stern, aber in den ersten 2 Tagen steht d
 Deine Krabbe wird ausgeblendet (spätestens nach 6 Stunden). Gibst du wieder einen Stern, kommt **genau dieselbe** Krabbe zurück.
 
 **Welche Daten werden gezeigt?**
-Nur dein öffentlicher GitHub-Name, deine öffentliche Konto-Nummer und der Zeitpunkt deines Sterns. Nimmst du den Stern weg, wird dein Name aus der Datei gelöscht. Die Seite setzt keine Cookies und zählt keine Besucher. Einstellungen wie „Das bin ich“ oder der Ton bleiben nur in deinem eigenen Browser.
+Nur dein öffentlicher GitHub-Name, deine öffentliche Konto-Nummer und der Zeitpunkt deines Sterns. Nimmst du den Stern weg, wird dein Name aus der Datei gelöscht. Die Seite setzt keine Cookies und zählt keine Besucher. Einstellungen wie „Meine Krabbe“ oder der Ton bleiben nur in deinem eigenen Browser.
 
 **Muss ich einen Stern geben, um mitzumachen?**
 Nein, das Meer ist für alle offen. Es ist ein Bild aller, die dem Projekt einen Stern gegeben haben.
@@ -143,7 +143,7 @@ Hinweis: GitHub schaltet zeitgesteuerte Abläufe in öffentlichen Repos nach 60 
 | `js/card.js`, `js/album.js` | Sammelkarte und Sammelalbum |
 | `js/intro.js` | Tauchgang beim Laden |
 | `js/i18n.js`, `js/lang.js` | Alle Texte auf Deutsch und Englisch, Sprach-Umschalter |
-| `js/sound.js` | Unterwasser-Geräusche (echte Aufnahmen, CC0) |
+| `js/sound.js` | Unterwasser-Klangteppich und Blubbern (CC0) |
 | `crabs.json` | Alle Krabben (pflegt die Action) |
 | `data/rarities.json` | Seltenheiten, Hüte, Chancen |
 | `tests/` | Automatische Tests |

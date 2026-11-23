@@ -78,7 +78,7 @@ class BrowserTest(unittest.TestCase):
             state = {"data": crabs}
             page.route("**/crabs.json*", lambda r: r.fulfill(status=200, content_type="application/json", body=json.dumps(state["data"])))
             page.crabs_state = state
-        page.goto(self.base + query)
+        page.goto(self.base + query, timeout=SLOW)  # Software-Grafik: mit zwei offenen Seiten kann schon das Laden dauern
         page.wait_for_selector("html[data-bereit='1']", state="attached", timeout=SLOW)
         if skip:
             page.evaluate("__sea.skip()")
@@ -166,6 +166,7 @@ class BrowserTest(unittest.TestCase):
         self.assertEqual(page.evaluate("__sea.crabs.size"), 5)
         self.assertEqual(page.text_content("#crab-count"), "5")
         self.assertTrue(page.evaluate("document.getElementById('demo-banner').classList.contains('hidden')"))
+        page.context.close()  # Software-Grafik: zwei Meere gleichzeitig bremsen sich gegenseitig stark aus
         empty, errors2 = self.open(crabs={"updated": "2026-01-01T00:00:00Z", "crabs": []})
         empty.wait_for_timeout(500)
         self.assertEqual(empty.evaluate("__sea.crabs.size"), 0)
@@ -190,6 +191,65 @@ class BrowserTest(unittest.TestCase):
         page.wait_for_selector("html[data-bereit='1']", state="attached", timeout=SLOW)
         self.assertEqual(page.evaluate("__sea.mineCrab()?.data.id"), 2)
         self.assertEqual(page.text_content("#star-btn .star-label"), "Meine Krabbe")
+
+    def test_keyboard_pan(self):
+        """WASD/Pfeiltasten schieben Kamera und Blickpunkt über die Insel; im Suchfeld nicht."""
+        page, errors = self.open(crabs=real_crabs(4))
+        page.wait_for_timeout(1500)  # Tauchflug starten lassen, dann überspringen
+        page.evaluate("__sea.skip(); __sea.controls.autoRotate = false; window.__f = 0; (function f() { __f++; requestAnimationFrame(f); })()")
+        page.wait_for_function("!__sea.fly")
+        frames = lambda n: page.wait_for_function(f"__f >= {page.evaluate('__f') + n}", timeout=SLOW)  # Software-Grafik: in Bildern warten
+        frames(4)
+        pos = "(() => { const t = __sea.controls.target, c = __sea.camera.position; return [t.x, t.z, c.x - t.x, c.z - t.z]; })()"
+        moved_from = lambda p: f"(() => {{ const t = __sea.controls.target; return Math.hypot(t.x - {p[0]}, t.z - {p[1]}) > 0.5; }})()"
+
+        before = page.evaluate(pos)
+        page.keyboard.down("w"); page.wait_for_function(moved_from(before), timeout=SLOW); page.keyboard.up("w"); frames(8)
+        after = page.evaluate(pos)
+        fwd = (-before[2], -before[3])  # Blickrichtung (Kamera → Ziel)
+        moved = (after[0] - before[0], after[1] - before[1])
+        self.assertGreater(moved[0] * fwd[0] + moved[1] * fwd[1], 0, (before, after))
+        self.assertAlmostEqual(after[2], before[2], delta=0.05, msg=(before, after))  # Kamera fährt mit, Blickwinkel bleibt
+
+        # seitlich mit Pfeil rechts: überwiegend quer zur Blickrichtung
+        page.keyboard.down("ArrowRight"); page.wait_for_function(moved_from(after), timeout=SLOW); page.keyboard.up("ArrowRight"); frames(8)
+        side = page.evaluate(pos)
+        mv, f2 = (side[0] - after[0], side[1] - after[1]), (-after[2], -after[3])
+        n_mv, n_f = (mv[0] ** 2 + mv[1] ** 2) ** 0.5, (f2[0] ** 2 + f2[1] ** 2) ** 0.5
+        self.assertLess(abs(mv[0] * f2[0] + mv[1] * f2[1]) / (n_mv * n_f), 0.3, (after, side))
+
+        # Tippen im Suchfeld bewegt nichts
+        page.click("#search"); page.keyboard.type("wasd"); frames(4)
+        typed = page.evaluate(pos)
+        self.assertAlmostEqual(typed[0], side[0], delta=1e-3)
+        self.assertAlmostEqual(typed[1], side[1], delta=1e-3)
+        self.assertEqual(errors, [])
+
+    def test_find_me_by_name(self):
+        """„Bist du schon im Meer?“: nur den Namen fragen; unbekannt → Schritte zum Stern zeigen."""
+        page, errors = self.open(crabs=real_crabs(4))
+        page.click("#find-me")
+        page.wait_for_selector("#join.find:not(.hidden)")
+        self.assertEqual(page.text_content("#join-title"), "Bist du schon im Meer?")
+        self.assertFalse(page.is_visible("#join-star"))  # kein Stern-Schritt
+        # noch nicht im Meer → Stern-Schritte erscheinen, Name bleibt stehen, kein Warten
+        page.fill("#join-name", "@niemand")
+        page.click("#join-form button")
+        self.assertTrue(page.is_visible("#join-star"))
+        self.assertEqual(page.input_value("#join-name"), "niemand")
+        self.assertIn("noch nicht im Meer", page.text_content("#join-msg"))
+        self.assertIsNone(page.evaluate("__sea.waitFor"))
+        page.click(".join-close")
+        # vorhanden → gemerkt, Knopf verschwindet
+        page.click("#find-me")
+        page.fill("#join-name", "Krabbe3")
+        page.click("#join-form button")
+        page.wait_for_selector("#join", state="hidden")
+        self.assertEqual(page.evaluate("__sea.mineCrab()?.data.id"), 3)
+        self.assertFalse(page.is_visible("#find-me"))
+        page.wait_for_selector("#card:not(.hidden)", timeout=SLOW)
+        self.assertIn("Nicht meine Krabbe", page.text_content("#card-mine"))
+        self.assertEqual(errors, [])
 
     def test_star_flow_and_reveal(self):
         page, errors = self.open(crabs=real_crabs(5))
@@ -290,6 +350,9 @@ class BrowserTest(unittest.TestCase):
             page.evaluate("""(n) => new Promise((r) => { const f = __sea.renderer.info.render.frame;
                 const chk = () => (__sea.renderer.info.render.frame > f + n ? r() : setTimeout(chk, 30)); chk(); })""", n)
         frames()  # Bildablauf startet erst nach der Mindestdauer des Tauchgangs
+        page.evaluate("""() => { window.__tlog = []; for (const t of ['pointerdown', 'pointerup', 'pointercancel'])
+            __sea.renderer.domElement.addEventListener(t, (e) => __tlog.push(t + '@' + Math.round(e.clientX) + ',' + Math.round(e.clientY)
+              + ' ' + document.elementFromPoint(e.clientX, e.clientY)?.id)); }""")
         cdp = page.context.new_cdp_session(page)
 
         # eigene Uhr für die Berührungen: Software-Grafik ist so langsam, dass echte Abstände nicht stimmen
@@ -306,7 +369,16 @@ class BrowserTest(unittest.TestCase):
 
         def gesture(path, steps=12, hold=150, settle=400):
             """path(f) → Fingerpositionen bei f = 0…1. hold = ruhig halten vor dem Loslassen (kein Ausgleiten)."""
-            touch("touchStart", path(0), ms=400)
+            for attempt in range(3):
+                n0 = page.evaluate("__tlog.length")
+                touch("touchStart", path(0), ms=400)
+                try:
+                    # Software-Grafik: manchmal kommt die allererste Berührung gar nicht an (kein pointerdown) –
+                    # dann abbrechen und noch einmal ansetzen; das prüft die Zustellung, nicht die Steuerung
+                    page.wait_for_function(f"__tlog.length > {n0}", timeout=4000)
+                    break
+                except Exception:
+                    touch("touchCancel", [], ms=16)
             for k in range(1, steps + 1):
                 touch("touchMove", path(k / steps))
                 if k == 1:
@@ -349,7 +421,7 @@ class BrowserTest(unittest.TestCase):
         b = self.cam(page)
         self.assertAlmostEqual(b["phi"], a["phi"], places=3)
         turn = abs(b["th"] - a["th"])
-        self.assertTrue(1.0 < turn < 1.35, turn)
+        self.assertTrue(1.0 < turn < 1.35, (turn, page.evaluate("[__tlog, __sea.controls.enabled, !!__sea.fly, (() => { const e = document.elementFromPoint(100, 400); return e && (e.id || e.className || e.tagName); })()]")))
         # senkrecht wischen → nur neigen
         page.gesture(lambda f: (200, 250 + 120 * f))
         c = self.cam(page)

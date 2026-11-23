@@ -928,3 +928,13 @@ html, body { overscroll-behavior: none; } /* kein Herunterziehen zum Neuladen */
 #home-btn { position: fixed; left: 16px; top: 104px; height: 44px; z-index: 5; display: flex; align-items: center; justify-content: center; }
 @media (max-width: 760px) { #home-btn { left: auto; right: 16px; top: 98px; } }
 body.intro-flying #home-btn { display: none; }
+
+/* „Bist du schon im Meer?“ – nur den GitHub-Namen fragen */
+.find-me { align-self: flex-end; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 5px 10px; }
+.join-find-note { display: none; font-size: 12.5px; color: var(--muted); margin: 10px 0 0; line-height: 1.4; }
+#join.find .join-steps { padding-left: 0; }
+#join.find .join-steps > li { list-style: none; }
+#join.find .join-steps > li:not(.join-name-step),
+#join.find .join-note { display: none; }
+#join.find .join-find-note { display: block; }
+@media (max-width: 760px) { .find-me { align-self: center; } }
