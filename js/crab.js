@@ -115,27 +115,62 @@ function res() {
     g.forEach((row, j) => [...row].forEach((ch, i) => { if (ch === 'X') ctx.fillRect(ox + i * c, oy + j * c, c, c); }));
   });
 
-  // Lichtkegel für die Krabbe des Tages
-  R.beamGeo = new THREE.CylinderGeometry(0.5, 1.5, 9, 24, 1, true).translate(0, 4.5, 0);
+  // Lichtkegel für die Krabbe des Tages: weicher Goldschein von oben, innen heller, oben ausgeblendet,
+  // von oben gesehen fast unsichtbar (sonst liegt ein heller Streifen auf dem Sand), mit aufsteigenden Funkeln
+  R.beamGeo = new THREE.CylinderGeometry(0.45, 1.25, 7, 32, 1, true).translate(0, 3.5, 0);
   R.beamMat = new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     uniforms: { uTime: shared.uTime },
     vertexShader: /* glsl */ `
-      varying vec2 vUv; varying float vF;
+      varying vec2 vUv; varying float vF; varying float vAx;
       void main() {
         vUv = uv;
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
         vec3 n = normalize(normalMatrix * normal);
-        vec3 v = -mv.xyz;
-        vF = abs(dot(n, v * inversesqrt(max(dot(v, v), 1e-8)))); // kein normalize eines Nullvektors
+        vec3 v = -mv.xyz * inversesqrt(max(dot(mv.xyz, mv.xyz), 1e-8));
+        vF = abs(dot(n, v));
+        vAx = abs(dot(normalize((modelViewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz), v)); // 1 = Blick entlang des Strahls
         gl_Position = projectionMatrix * mv;
       }`,
     fragmentShader: /* glsl */ `
-      uniform float uTime; varying vec2 vUv; varying float vF;
+      uniform float uTime; varying vec2 vUv; varying float vF; varying float vAx;
       void main() {
-        float a = smoothstep(0.0, 0.12, vUv.y) * (0.35 + 0.65 * (1.0 - vUv.y)) * pow(vF, 1.6);
-        a *= 0.85 + 0.15 * sin(uTime * 2.0 + vUv.y * 8.0);
-        gl_FragColor = vec4(vec3(1.0, 0.86, 0.45) * a * 0.55, 1.0);
+        float y = vUv.y;
+        float a = smoothstep(0.0, 0.06, y) * pow(1.0 - y, 1.7) * pow(vF, 2.2);
+        a *= 1.0 - smoothstep(0.55, 0.95, vAx);                      // von oben ausblenden
+        a *= 0.8 + 0.2 * sin(uTime * 1.6 + y * 10.0 + vUv.x * 6.2831 * 3.0); // sanft wandernde Streifen
+        gl_FragColor = vec4(vec3(1.0, 0.8, 0.38) * a * 0.5, 1.0);
+      }`,
+  });
+  {
+    const N = 18, seed = new Float32Array(N * 3), pos = new Float32Array(N * 3), r = mulberry32(99);
+    for (let i = 0; i < N; i++) seed.set([r() * 6.2831, 0.15 + r() * 0.5, r()], i * 3);
+    R.sparkGeo = new THREE.BufferGeometry();
+    R.sparkGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    R.sparkGeo.setAttribute('aSeed', new THREE.BufferAttribute(seed, 3));
+    R.sparkGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 3, 0), 5);
+  }
+  R.sparkMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    uniforms: { uTime: shared.uTime, uScale: { value: 450 } },
+    vertexShader: /* glsl */ `
+      attribute vec3 aSeed; uniform float uTime; uniform float uScale; varying float vA;
+      void main() {
+        float k = fract(aSeed.z + uTime * 0.09);                  // 0 unten … 1 oben
+        float ang = aSeed.x + uTime * 0.4, rad = aSeed.y * (0.6 + k * 1.4);
+        vec3 p = vec3(cos(ang) * rad, 0.3 + k * 5.0, sin(ang) * rad);
+        vA = smoothstep(0.0, 0.15, k) * (1.0 - smoothstep(0.6, 1.0, k)) * (0.6 + 0.4 * sin(uTime * 5.0 + aSeed.x * 7.0));
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_PointSize = uScale * 0.14 * projectionMatrix[1][1] / -mv.z; // ~0.14 Welt-Einheiten groß
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: /* glsl */ `
+      varying float vA;
+      void main() {
+        vec2 q = gl_PointCoord - 0.5;
+        float d = length(q), star = max(0.0, 1.0 - abs(q.x) * abs(q.y) * 60.0) * (1.0 - d * 2.0);
+        float a = (smoothstep(0.5, 0.0, d) * 0.6 + star) * vA;
+        gl_FragColor = vec4(vec3(1.0, 0.88, 0.5) * a, 1.0);
       }`,
   });
   return R;
@@ -958,8 +993,10 @@ export class Crab {
     old.material.map.dispose(); old.material.dispose();
     this.root.add(this.label);
     if (on) {
-      this.beam = new THREE.Mesh(R.beamGeo, R.beamMat);
-      this.beam.renderOrder = 5;
+      this.beam = new THREE.Group();
+      const cone = new THREE.Mesh(R.beamGeo, R.beamMat), sparks = new THREE.Points(R.sparkGeo, R.sparkMat);
+      cone.renderOrder = sparks.renderOrder = 5;
+      this.beam.add(cone, sparks);
       this.goldRing = new THREE.Mesh(R.ringGeo, new THREE.MeshBasicMaterial({ color: hdr(0xffc93c, 1.4), transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
       this.root.add(this.beam, this.goldRing);
     } else if (this.beam) {
