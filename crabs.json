@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-17T02:32:01Z",
+  "updated": "2026-11-23T09:07:59Z",
   "crabs": [
     {
       "id": 169840624,
@@ -36,6 +36,17 @@
       "starred": true,
       "variant": 2,
       "hat": "none"
+    },
+    {
+      "id": 160857036,
+      "login": "Sieder2009",
+      "rarity": "common",
+      "firstStarredAt": "2026-11-23T09:07:52Z",
+      "starred": true,
+      "shell": 0,
+      "pattern": 2,
+      "hue": 6,
+      "sealed": "2hpV5Fft3EjBwnxItCDiqaGAFggRcescJGYalzerHupBDZ4eIL1UQUGoYHcbgAnK"
     }
   ]
 }
