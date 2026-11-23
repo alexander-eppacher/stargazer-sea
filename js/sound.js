@@ -1,5 +1,5 @@
 /*
- * Unterwasser-Geräusche: echte Aufnahmen (CC0, siehe assets/sounds/QUELLEN.md),
+ * Unterwasser-Geräusche: ruhiger Klangteppich und echte Blubber-Aufnahmen (CC0, siehe assets/sounds/QUELLEN.md),
  * gedämpft durch einen Tiefpass. Standardmäßig AUS – erst ein Klick auf den Lautsprecher lädt
  * und startet sie. Klappt das Laden nicht, gibt es ein im Browser erzeugtes Meeresrauschen.
  */
@@ -7,7 +7,7 @@ const KEY = 'stargazer-sea-sound';
 const BASE = 'assets/sounds/';
 
 let ac = null, master = null, started = false, enabled = false, bubbleTimer = null;
-let buffers = { meer: null, blubbern: null, blops: [] };
+let buffers = { meer: null, blasen: [], blops: [] };
 let loading = null, ambientNodes = [], usingRecording = false;
 
 function store(v) { try { localStorage.setItem(KEY, v ? '1' : '0'); } catch { /* egal */ } }
@@ -22,15 +22,15 @@ async function loadBuffer(name) {
 function loadAll() {
   if (loading) return loading;
   const ogg = typeof Audio !== 'undefined' && new Audio().canPlayType('audio/ogg; codecs="vorbis"');
+  const ok = (list) => list.filter((p) => p.status === 'fulfilled').map((p) => p.value);
   loading = Promise.allSettled([
-    loadBuffer(ogg ? 'meer.ogg' : 'meer.mp3').catch(() => loadBuffer('meer.mp3')),
-    loadBuffer('blubbern.mp3'),
-    loadBuffer('blop1.mp3'),
-    loadBuffer('blop2.mp3'),
-  ]).then(([m, b, p1, p2]) => {
+    loadBuffer(ogg ? 'teppich.ogg' : 'teppich.mp3').catch(() => loadBuffer('teppich.mp3')),
+    loadBuffer('blasen1.mp3'), loadBuffer('blasen2.mp3'),
+    loadBuffer('blubb1.mp3'), loadBuffer('blubb2.mp3'), loadBuffer('blubb3.mp3'),
+  ]).then(([m, b1, b2, p1, p2, p3]) => {
     buffers.meer = m.status === 'fulfilled' ? m.value : null;
-    buffers.blubbern = b.status === 'fulfilled' ? b.value : null;
-    buffers.blops = [p1, p2].filter((p) => p.status === 'fulfilled').map((p) => p.value);
+    buffers.blasen = ok([b1, b2]);
+    buffers.blops = ok([p1, p2, p3]);
     return buffers;
   });
   return loading;
@@ -52,13 +52,13 @@ function startAmbientRecording(buf) {
   usingRecording = true;
   const lp = ac.createBiquadFilter();
   lp.type = 'lowpass';
-  lp.frequency.value = 650;
+  lp.frequency.value = 2600; // der Klangteppich ist schon weich – nur ganz oben etwas dämpfen
   lp.Q.value = 0.5;
   const out = ac.createGain();
-  out.gain.value = 0.9;
+  out.gain.value = 0.75;
   lp.connect(out).connect(master);
   ambientNodes.push(lp, out);
-  const XF = 3; // Sekunden Überblendung
+  const XF = 2; // Sekunden Überblendung (verdeckt auch die kleine Lücke am Ende von MP3-Dateien)
   const play = (when) => {
     const src = ac.createBufferSource();
     src.buffer = buf;
@@ -104,9 +104,9 @@ export function bubble(strength = 1) {
   if (buffers.blops.length) {
     const src = ac.createBufferSource();
     src.buffer = buffers.blops[Math.floor(Math.random() * buffers.blops.length)];
-    src.playbackRate.value = 0.85 + Math.random() * 0.5;
+    src.playbackRate.value = 0.85 + Math.random() * 0.4;
     const g = ac.createGain();
-    g.gain.value = 0.55 * strength;
+    g.gain.value = 0.45 * strength;
     src.connect(g).connect(master);
     src.start(t);
     return;
@@ -125,23 +125,23 @@ export function bubble(strength = 1) {
   o.stop(t + 0.15);
 }
 
-/** Kurzer Ausschnitt aus der Blubber-Aufnahme (zufällige Stelle, weich ein-/ausgeblendet). */
+/** Kurzer Ausschnitt aus einer Blubber-Aufnahme (zufällige Stelle, weich ein-/ausgeblendet). */
 function bubbleBurst() {
   if (!enabled || !ac) return;
-  const buf = buffers.blubbern;
+  const buf = buffers.blasen[Math.floor(Math.random() * buffers.blasen.length)];
   if (!buf) { bubble(0.7); return; }
-  const len = 0.5 + Math.random() * 1.1;
+  const len = 0.7 + Math.random() * 1.4;
   const off = Math.random() * Math.max(0.1, buf.duration - len);
   const t = ac.currentTime;
   const src = ac.createBufferSource();
   src.buffer = buf;
   src.playbackRate.value = 0.8 + Math.random() * 0.35;
   const lp = ac.createBiquadFilter();
-  lp.type = 'lowpass'; lp.frequency.value = 1800;
+  lp.type = 'lowpass'; lp.frequency.value = 2400;
   const g = ac.createGain();
   g.gain.setValueAtTime(0, t);
-  g.gain.linearRampToValueAtTime(0.32, t + 0.08);
-  g.gain.setValueAtTime(0.32, t + len - 0.15);
+  g.gain.linearRampToValueAtTime(0.26, t + 0.08);
+  g.gain.setValueAtTime(0.26, t + len - 0.15);
   g.gain.linearRampToValueAtTime(0, t + len);
   src.connect(lp).connect(g).connect(master);
   src.start(t, off, len + 0.05);
@@ -199,7 +199,7 @@ export async function setSound(on) {
 }
 
 export function audioState() { return ac ? ac.state : 'none'; }
-export function loadedSounds() { return { meer: !!buffers.meer, blubbern: !!buffers.blubbern, blops: buffers.blops.length }; }
+export function loadedSounds() { return { meer: !!buffers.meer, blasen: buffers.blasen.length, blops: buffers.blops.length }; }
 
 // Im Hintergrund-Tab stumm (spart Akku)
 document.addEventListener('visibilitychange', () => {
