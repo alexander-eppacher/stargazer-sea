@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-23T09:07:59Z",
+  "updated": "2026-11-23T09:17:57Z",
   "crabs": [
     {
       "id": 169840624,
@@ -47,6 +47,17 @@
       "pattern": 2,
       "hue": 6,
       "sealed": "2hpV5Fft3EjBwnxItCDiqaGAFggRcescJGYalzerHupBDZ4eIL1UQUGoYHcbgAnK"
+    },
+    {
+      "id": 161322898,
+      "login": "peramanu",
+      "rarity": "common",
+      "firstStarredAt": "2026-11-23T09:17:49Z",
+      "starred": true,
+      "shell": 1,
+      "pattern": 3,
+      "hue": 5,
+      "sealed": "IN0KVil2WbfTkq2UyEJ4Wzz5R05g-f3I2Vhc4_d6nlgrLhaXewb9xgpJ6GTZDyGA"
     }
   ]
 }
