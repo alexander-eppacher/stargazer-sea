@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-23T09:17:57Z",
+  "updated": "2026-11-25T19:27:10Z",
   "crabs": [
     {
       "id": 169840624,
@@ -43,10 +43,8 @@
       "rarity": "common",
       "firstStarredAt": "2026-11-23T09:07:52Z",
       "starred": true,
-      "shell": 0,
-      "pattern": 2,
-      "hue": 6,
-      "sealed": "2hpV5Fft3EjBwnxItCDiqaGAFggRcescJGYalzerHupBDZ4eIL1UQUGoYHcbgAnK"
+      "variant": 99,
+      "hat": "beanie"
     },
     {
       "id": 161322898,
@@ -54,10 +52,8 @@
       "rarity": "common",
       "firstStarredAt": "2026-11-23T09:17:49Z",
       "starred": true,
-      "shell": 1,
-      "pattern": 3,
-      "hue": 5,
-      "sealed": "IN0KVil2WbfTkq2UyEJ4Wzz5R05g-f3I2Vhc4_d6nlgrLhaXewb9xgpJ6GTZDyGA"
+      "variant": 86,
+      "hat": "cap"
     }
   ]
 }
