@@ -4,7 +4,8 @@
  * Kamera ruhig weiter, auch wenn die Seite nebenbei das Meer baut und dabei kurz beschäftigt ist.
  * Ohne Worker-Unterstützung läuft derselbe Code direkt auf der Seite.
  */
-self.IntroScene = function (ctx) {
+self.IntroScene = function (ctx, night) {
+  night = night || 0;
   var W = 0, H = 0;
   var cam = -0.62, crossed = false, burst = 0, last = 0, start = 0;
   var bubbles = [], fish = [], kelp = [];
@@ -12,6 +13,7 @@ self.IntroScene = function (ctx) {
     { x: 0.12, d: -1.05, s: 1.0, v: 9 }, { x: 0.62, d: -0.92, s: 1.3, v: 6 },
     { x: 0.35, d: -0.7, s: 0.8, v: 12 }, { x: 0.86, d: -0.62, s: 0.9, v: 8 },
   ];
+  var KELP_SPAN = 14 * 0.22;
   for (var i = 0; i < 14; i++) {
     kelp.push({ side: i % 2, d: 0.9 + i * 0.22 + Math.random() * 0.1, h: 0.35 + Math.random() * 0.35, ph: Math.random() * 6, par: 1.15 + Math.random() * 0.25, col: ['#3fae5c', '#2f9e7a', '#6cbf45'][i % 3] });
   }
@@ -23,9 +25,13 @@ self.IntroScene = function (ctx) {
     var r = Math.round(a[0] + (b[0] - a[0]) * t), g = Math.round(a[1] + (b[1] - a[1]) * t), bl = Math.round(a[2] + (b[2] - a[2]) * t);
     return 'rgb(' + r + ',' + g + ',' + bl + ')';
   }
-  var WATER = [[126, 214, 242], [74, 174, 219], [36, 120, 180], [16, 70, 128], [8, 40, 84]];
+  // Wasser wird mit der Tiefe dunkler und endet genau in der Farbe des Meers dahinter
+  // (Tag 0x4aaedb, Nacht 0x0f2f5c wie in main.js) – so gibt es beim Übergang keinen Helligkeitssprung.
+  var DAY = [[126, 214, 242], [104, 196, 234], [86, 184, 226], [74, 174, 219]];
+  var NIGHT = [[44, 86, 140], [30, 66, 116], [20, 54, 102], [15, 47, 92]];
+  var WATER = DAY.map(function (c, i) { return [0, 1, 2].map(function (k) { return c[k] + (NIGHT[i][k] - c[k]) * night; }); });
   function waterAt(d) {
-    var x = Math.max(0, Math.min(WATER.length - 1.001, d * 1.3));
+    var x = Math.max(0, Math.min(WATER.length - 1.001, d * 1.1));
     var i = Math.floor(x);
     return lerpColor(WATER[i], WATER[i + 1], x - i);
   }
@@ -71,17 +77,26 @@ self.IntroScene = function (ctx) {
     var surf = sy(0);
     if (surf > 0) {
       var sg = ctx.createLinearGradient(0, sy(-1.2), 0, surf);
-      sg.addColorStop(0, '#7fd0ff'); sg.addColorStop(1, '#dff6ff');
+      sg.addColorStop(0, lerpColor([127, 208, 255], [10, 22, 52], night)); sg.addColorStop(1, lerpColor([223, 246, 255], [44, 70, 120], night));
       ctx.fillStyle = sg;
       ctx.fillRect(0, 0, W, Math.min(H, surf));
-      // Sonne
+      // Sonne (nachts Mond und Sterne)
       var sx = W * 0.8, syy = sy(-1.0);
-      ctx.fillStyle = 'rgba(255,214,90,0.35)'; ctx.beginPath(); ctx.arc(sx, syy, 74, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(sx, syy, 52, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#ffd23f'; ctx.beginPath(); ctx.arc(sx, syy, 45, 0, Math.PI * 2); ctx.fill();
+      if (night > 0.5) {
+        ctx.fillStyle = '#fff';
+        for (var st = 0; st < 40; st++) { var stx = (st * 97.3) % W, sty = sy(-1.25 + ((st * 37) % 100) / 100 * 1.1); ctx.globalAlpha = 0.4 + 0.5 * Math.abs(Math.sin(t * 1.5 + st)); ctx.fillRect(stx, sty, 2, 2); }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = 'rgba(200,220,255,0.25)'; ctx.beginPath(); ctx.arc(sx, syy, 70, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#f4f1e6'; ctx.beginPath(); ctx.arc(sx, syy, 44, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = lerpColor([127, 208, 255], [10, 22, 52], night); ctx.beginPath(); ctx.arc(sx + 18, syy - 10, 38, 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.fillStyle = 'rgba(255,214,90,0.35)'; ctx.beginPath(); ctx.arc(sx, syy, 74, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(sx, syy, 52, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffd23f'; ctx.beginPath(); ctx.arc(sx, syy, 45, 0, Math.PI * 2); ctx.fill();
+      }
       clouds.forEach(function (cl) {
         var x = ((cl.x * W + t * cl.v) % (W + 260)) - 130;
-        paperBlob(x, sy(cl.d), cl.s * Math.min(1.4, W / 900 + 0.5), '#ffffff');
+        paperBlob(x, sy(cl.d), cl.s * Math.min(1.4, W / 900 + 0.5), night > 0.5 ? '#5a6f96' : '#ffffff');
       });
     }
 
@@ -105,6 +120,8 @@ self.IntroScene = function (ctx) {
     kelp.forEach(function (k) {
       var base = (k.d - cam * k.par) * H + H * 0.5 + H * 0.5;
       var len = k.h * H;
+      // oben hinausgewandert: ein Stück tiefer wieder einsetzen, so geht der Tauchgang endlos weiter
+      if (base < 0 && cam > 1) { k.d += KELP_SPAN; k.h = 0.35 + Math.random() * 0.35; return; }
       if (base - len > H || base < 0) return;
       var x0 = k.side ? W - 30 - (k.d * 37 % 50) : 30 + (k.d * 53 % 50);
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 22; ctx.lineCap = 'round';
@@ -124,6 +141,7 @@ self.IntroScene = function (ctx) {
       f.x += f.v * dt;
       if (f.x > 1.15) f.x = -0.15; if (f.x < -0.15) f.x = 1.15;
       var y = sy(f.d), x = f.x * W;
+      if (y < -60 && cam > 1) { f.d = cam + 0.62 + Math.random() * 0.5; f.x = f.v > 0 ? -0.1 : 1.1; return; }
       if (y < -40 || y > H + 40) return;
       ctx.save(); ctx.translate(x, y); ctx.scale(f.v > 0 ? f.s : -f.s, f.s);
       var tail = Math.sin(t * 8 + f.d * 10) * 4;
@@ -181,7 +199,8 @@ self.IntroScene = function (ctx) {
       var dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       var t = (now - start) / 1000;
-      var target = -0.62 + 2.7 * (1 - Math.exp(-t / 1.5)) + 0.06 * t;
+      // erst zügig durch die Oberfläche, danach gleichmäßig weiter in die Tiefe – nie Stillstand, solange geladen wird
+      var target = -0.62 + 2.2 * (1 - Math.exp(-t / 1.4)) + 0.3 * t;
       cam += (target - cam) * Math.min(1, dt * 2.2);
       if (!crossed && cam > -0.02) { crossed = true; splash(); }
       if (burst > 0) {

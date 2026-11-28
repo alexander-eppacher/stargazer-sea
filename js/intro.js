@@ -10,11 +10,22 @@
   if (!loader || location.protocol === 'file:') return;
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
+  // Tageszeit wie im Meer (main.js: dayPhase), damit das Ladebild in der richtigen Wasserfarbe endet. ?zeit=22 zum Testen.
+  var night = 0;
+  try {
+    var q = parseFloat(new URLSearchParams(location.search).get('zeit')), now = new Date();
+    var h = isNaN(q) ? now.getHours() + now.getMinutes() / 60 : q;
+    var sm = function (a, b, x) { var t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+    night = h >= 12 ? sm(18.5, 21.5, h) : 1 - sm(5.5, 8, h);
+  } catch (e) { /* alt */ }
+
   var c = document.createElement('canvas');
   c.className = 'intro-canvas';
   c.setAttribute('aria-hidden', 'true');
   loader.insertBefore(c, loader.firstChild);
   loader.classList.add('intro');
+  loader.classList.toggle('night', night > 0.5);
+  loader.style.background = night > 0.5 ? '#0f2f5c' : '#7fd0ff';
   var dpr = function () { return Math.min(window.devicePixelRatio || 1, 2); };
   var start = performance.now();
 
@@ -25,11 +36,11 @@
       var off = c.transferControlToOffscreen();
       worker = new Worker('js/intro-worker.js');
       worker.onerror = function () { /* Rückfall unten greift nicht mehr – dann bleibt nur der Hintergrund */ };
-      worker.postMessage({ type: 'init', canvas: off, w: innerWidth, h: innerHeight, dpr: dpr() }, [off]);
+      worker.postMessage({ type: 'init', canvas: off, w: innerWidth, h: innerHeight, dpr: dpr(), night: night }, [off]);
     }
   } catch (e) { worker = null; }
   if (!worker && window.IntroScene) {
-    scene = window.IntroScene(c.getContext('2d'));
+    scene = window.IntroScene(c.getContext('2d'), night);
     scene.resize(innerWidth, innerHeight, dpr());
     (function frame(now) { if (!c.isConnected) return; scene.step(now); requestAnimationFrame(frame); })(performance.now());
   }
@@ -48,6 +59,7 @@
   var KEY = 'stargazer.introGesehen', seen = false;
   try { seen = localStorage.getItem(KEY) === '1'; } catch (e) { /* Speicher gesperrt */ }
   window.__introMin = seen ? 1200 : 3000;
+  window.__introSeen = seen;
   window.__introT0 = start;
   window.__introSkipped = false;
   var waiters = [];
