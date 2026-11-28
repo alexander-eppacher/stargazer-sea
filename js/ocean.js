@@ -76,7 +76,7 @@ const art = (stk) => ({ stk, t: toTexture(stk.canvas) });
 /* =========================================================
    Haupt-Aufbau
    ========================================================= */
-export function buildOcean(scene, renderer, camera, opts = {}) {
+export async function buildOcean(scene, renderer, camera, opts = {}, pause = async () => {}) {
   const rng = mulberry32(20240607);
   const updaters = [];
   const env = { night: 0, dusk: 0 };
@@ -184,6 +184,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
     }
   });
 
+  await pause(); // Luft holen: die Lade-Animation darf zwischendurch weiterzeichnen
   /* ---------- Papp-Insel ---------- */
   const sandTex = sandTexture(rng, 0xf4d9a0);
   sandTex.repeat.set(0.085, 0.085);
@@ -270,20 +271,23 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
   low.receiveShadow = true;
   scene.add(low);
 
+  await pause(); // Luft holen: die Lade-Animation darf zwischendurch weiterzeichnen
   /* ---------- Hintergrund: gestaffelte Kulissen im Wasserdunst (js/depth.js) ---------- */
   updaters.push(buildDepth(scene, mulberry32(9001), { fogColor: WORLD.fogColor, nightU, env, lowY: WORLD.lowY, surface, camera }));
   // Die alten Kulissen haben hier 140176 Zufallszahlen verbraucht. Überspringen, damit alle
   // Korallen, Steine usw. danach genau an derselben Stelle bleiben wie vorher.
   for (let i = 0; i < 140176; i++) rng();
 
+  await pause(); // Luft holen: die Lade-Animation darf zwischendurch weiterzeichnen
   /* ---------- Schatztruhe + Papierstern ---------- */
   const chest = buildChest(scene, rng);
   obstacles.push({ x: 0, z: 0, r: 2.1 });
   updaters.push(chest.update);
 
+  await pause(); // Luft holen: die Lade-Animation darf zwischendurch weiterzeichnen
   /* ---------- Krabbenstadt am hinteren Inselrand ---------- */
   const townStart = obstacles.length, sceneStart = scene.children.length;
-  const town = buildTown(scene, mulberry32(4711), { heightAt, obstacles, env, camera });
+  const town = await buildTown(scene, mulberry32(4711), { heightAt, obstacles, env, camera }, pause);
   updaters.push(town.update);
   // Plätze für Blubberbad & Spielplatz schon jetzt reservieren (kein Gras/Korallen darin)
   for (const [x, z, r] of Object.values(PLACE_SPOTS)) obstacles.push({ x, z, r });
@@ -313,6 +317,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
   const ghosts = [];   // Platzhalter-Hindernisse bis nach den Korallen (gleiche Würfelfolge)
   let dry = false;     // true: nur würfeln, nichts bauen
 
+  await pause(); // Luft holen: die Lade-Animation darf zwischendurch weiterzeichnen
   /* ---------- Papierfelsen ---------- */
   const rockGeos = [];
   const grainTex = grainTexture(rng);
@@ -411,6 +416,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
     scene.add(vm);
   }
 
+  await pause(); // Luft holen: die Lade-Animation darf zwischendurch weiterzeichnen
   /* ---------- Korallen (Pappaufsteller) ---------- */
   const A = {
     branch: [0xff6f91, 0xff9f45, 0xffd23f, 0xb07ef0, 0x4fe0c0, 0xff5470].map((c) => art(drawBranchCoral(rng, c))),
@@ -564,6 +570,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
     if (!dry) scene.add(m);
   }
 
+  await pause(); // Luft holen: die Lade-Animation darf zwischendurch weiterzeichnen
   /* ---------- Grasbüschel (instanziert) ---------- */
   const tufts = [];
   // Büschel wachsen in Grüppchen (wirkt natürlicher als gleichmäßig verstreut)
@@ -603,6 +610,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
     scene.add(mesh);
   }
 
+  await pause(); // Luft holen: die Lade-Animation darf zwischendurch weiterzeichnen
   /* ---------- Seesterne & Muscheln (echte kleine Formen auf dem Boden) ---------- */
   {
     // die alten Bilder werden nur noch gewürfelt, damit der übrige Aufbau der Insel gleich bleibt
@@ -639,6 +647,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
     }
   }
 
+  await pause(); // Luft holen: die Lade-Animation darf zwischendurch weiterzeichnen
   /* ---------- Neue Deko: Seeigel, Kiesel, Sandrillen, Anker, Schild, Riesenmuschel ---------- */
   {
     // Seeigel (kleine gekreuzte Pappaufsteller)
@@ -658,6 +667,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
     }
     for (const [a, geos] of ug) scene.add(cutMesh(mergeAll(geos, ['position', 'normal', 'uv']), a.t));
 
+    await pause();
     // Kiesel-Flecken und Sandrillen flach auf dem Boden
     const flat = (stk, size, n, mat, lift) => {
       const geos = [];
@@ -691,9 +701,11 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
         scene.add(m);
       }
     }
+    await pause();
     const rip = drawRipples(rng, 0xf4d9a0);
     flat(rip, 4.2, 16, new THREE.MeshStandardMaterial({ map: toTexture(rip.canvas), transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2 }), 0.012);
 
+    await pause();
     // Anker, schräg im Sand
     const an = art(drawAnchor(rng));
     const anchor = cutMesh(stickerGeometry(an.stk, 1.7, 'bottom'), an.t);
@@ -721,6 +733,7 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
     scene.add(sign);
     obstacles.push({ x: -8.5, z: 15.5, r: 0.9 });
 
+    await pause();
     // Rahmen vorne: zwei große Pflanzengruppen in den unteren Ecken (Tiefe!)
     for (const [fx, fz] of [[-12.5, 21.5], [13, 22]]) {
       const placed = [];
@@ -742,20 +755,25 @@ export function buildOcean(scene, renderer, camera, opts = {}) {
       obstacles.push({ x: fx, z: fz, r: 2.2 });
     }
   }
+  await pause();
   const clam = buildClam(scene, rng, 8.5, 13.5);
   obstacles.push({ x: 8.5, z: 13.5, r: 1.6 });
   updaters.push(clam);
 
+  await pause();
   flushCuts();
 
+  await pause(); // Luft holen: die Lade-Animation darf zwischendurch weiterzeichnen
   /* ---------- Besondere Orte: Sternwarte, Wrack-Café, Blubberbad, Spielplatz ---------- */
-  const places = buildPlaces(scene, { heightAt, obstacles, plateaus: PLATEAUS, plateauCorals, env, ...town });
+  const places = await buildPlaces(scene, { heightAt, obstacles, plateaus: PLATEAUS, plateauCorals, env, ...town }, pause);
   updaters.push(places.update);
   town.vents.push(...places.vents);
 
+  await pause(); // Luft holen: die Lade-Animation darf zwischendurch weiterzeichnen
   /* ---------- Mehr Leben: Seegras-Felder, Korallengruppen, Kelp-Wäldchen, Kleinkram, kleine Orte ---------- */
   buildExtras({ scene, heightAt, obstacles, plants, solids, blocked, onStreet, free, A, tufts, pruneTufts, bentFan });
 
+  await pause(); // Luft holen: die Lade-Animation darf zwischendurch weiterzeichnen
   /* ---------- Tiere ---------- */
   const sky = skyline(scene, sceneStart, solids);
   updaters.push(buildFish(scene, rng, camera, reefAnemones, sky));

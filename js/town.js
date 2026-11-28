@@ -678,7 +678,7 @@ function starTexture(color) {
 }
 
 /* ---------- Aufbau ---------- */
-export function buildTown(scene, rng, { heightAt, obstacles, env, camera }) {
+export async function buildTown(scene, rng, { heightAt, obstacles, env, camera }, pause = async () => {}) {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, emissive: 0x140d06 });
   const glowMat = new THREE.MeshBasicMaterial({ vertexColors: true, color: hdr(0xffffff, 0.9) });
   const glassMat = new THREE.MeshStandardMaterial({ color: 0xd6f3fa, roughness: 0.15, transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false });
@@ -719,14 +719,22 @@ export function buildTown(scene, rng, { heightAt, obstacles, env, camera }) {
   /* --- Stadtkern: die „Muschelgasse“ im Bogen hinter der Krabbenwiese --- */
   // äußere Reihe (größere Häuser, Front zur Gasse = zur Inselmitte)
   const can = at(-122, 35.4, canHouse(), 1.8, { extra: strawGeo() });
+  await pause();
   at(-112, 35.6, shellTower(), 1.9);
+  await pause();
   const hall = at(-101.5, 35.8, clockTower(), 2.2);
+  await pause();
   at(-91, 35.6, crateHouse(), 2.0);
+  await pause();
   const shop = at(-81.5, 35.2, jarShop(), 1.7, { glass: jarGlass() });
+  await pause();
   // innere Reihe (kleine Buden, Front zur Gasse = nach außen)
   const stand = at(-117, 29.9, snackStand(), 1.6, { turn: Math.PI });
+  await pause();
   const fountainG = at(-101.5, 30.4, fountain(), 1.5);
+  await pause();
   const post = at(-87, 30.0, postBooth(), 1.3, { turn: Math.PI });
+  await pause();
 
   // Schilder an Rathaus, Laden, Post – fest montiert (Rückseite an Wand/Stütze, Unterkante auf einer Kante)
   const signOn = (g, key, style, w, { y = null, bottom = null, back }) => {
@@ -738,6 +746,7 @@ export function buildTown(scene, rng, { heightAt, obstacles, env, camera }) {
   signOn(hall, 'town.hall', 'hall', 1.45, { y: 22, back: 4 });            // an der Turmwand, über dem Hallendach
   signOn(shop, 'town.shop', 'shop', 1.6, { bottom: 25, back: 0 });         // steht auf dem Deckel, Halter dahinter
   signOn(post, 'town.post', 'post', 1.1, { bottom: 12.4, back: 3.5 });     // steht auf dem unteren Dach, lehnt am oberen
+  await pause();
 
   // Gasse: Kopfsteinpflaster in Reihen (versetzt wie gemauert), dazwischen helle Fugen, an beiden Rändern Bordsteine
   {
@@ -765,18 +774,18 @@ export function buildTown(scene, rng, { heightAt, obstacles, env, camera }) {
       sh.lineTo(-w + c, h); sh.quadraticCurveTo(-w, h, -w, h - c); sh.lineTo(-w, -h + c); sh.quadraticCurveTo(-w, -h, -w + c, -h);
       const g = new THREE.ExtrudeGeometry(sh, { depth: 0.5, bevelEnabled: true, bevelThickness: 0.25, bevelSize: 0.1, bevelSegments: 2, curveSegments: 3 });
       g.rotateX(-Math.PI / 2); g.translate(0, 0.25, 0);   // liegt auf y = 0, ist 1 hoch
-      return g.toNonIndexed();
+      return paintGeo(g, 0xffffff);                       // Farbe kommt je Stein dazu
     })();
-    const sr = mulberry32(31337), stones = [];
+    // Alle Steine teilen sich EINE Form, jeder hat nur Lage, Größe und Farbe (statt ~170 000 Ecken nur ein paar Hundert):
+    // so muss beim Laden kaum etwas auf die Grafikkarte, und der Tauchgang ruckelt nicht
+    const sr = mulberry32(31337), stones = [], Y = new THREE.Vector3(0, 1, 0);
     const lay = (a, rc, len, wid, hgt, color) => {
       const [x, z] = polar(a, rc);
       if (underHouse(x, z, Math.max(len, wid) * 0.5)) return;
-      const g = unit.clone();
-      g.scale(len, hgt, wid);
-      g.rotateY(-(a * Math.PI / 180 + Math.PI / 2) + (sr() - 0.5) * 0.08);
-      g.translate(x, 0.02, z);
-      const c = new THREE.Color(color).multiplyScalar(0.94 + sr() * 0.1);
-      stones.push(paintGeo(g, c.getHex()));
+      const yaw = -(a * Math.PI / 180 + Math.PI / 2) + (sr() - 0.5) * 0.08;
+      const m = new THREE.Matrix4().compose(new THREE.Vector3(x, 0.02, z), new THREE.Quaternion().setFromAxisAngle(Y, yaw), new THREE.Vector3(len, hgt, wid));
+      const c = new THREE.Color(new THREE.Color(color).multiplyScalar(0.94 + sr() * 0.1).getHex()); // wie früher auf 8 Bit gerundet
+      stones.push([m, c]);
     };
     const rows = 5, r0 = 31.62, rw = (33.58 - r0) / rows, span = A1 - A0;
     for (let i = 0; i < rows; i++) {
@@ -792,11 +801,16 @@ export function buildTown(scene, rng, { heightAt, obstacles, env, camera }) {
       const L = (rc * span * Math.PI) / 180, n = Math.round(L / 0.9), step = span / n;
       for (let k = 0; k < n; k++) lay(A0 + step * (k + 0.5), rc, ((rc * step * Math.PI) / 180) * 0.94, 0.2, 0.12, 0xb3a690);
     }
-    const cm = new THREE.Mesh(mergeAll(stones), mat);
+    const cm = new THREE.InstancedMesh(unit, mat, stones.length);
+    stones.forEach(([m, c], i) => { cm.setMatrixAt(i, m); cm.setColorAt(i, c); });
+    cm.instanceMatrix.needsUpdate = true;
+    cm.instanceColor.needsUpdate = true;
+    cm.frustumCulled = false; // eine Gasse: lohnt nicht, und die Grundform allein hat keinen passenden Umriss
     cm.receiveShadow = true;
     scene.add(cm);
   }
 
+  await pause();
   // Laternen am inneren Rand der Gasse, dazwischen Wimpelketten
   {
     const lg = vox(lantern(), U);
@@ -840,11 +854,16 @@ export function buildTown(scene, rng, { heightAt, obstacles, env, camera }) {
     }
   }
 
+  await pause();
   /* --- abgelegene Häuser, weit verstreut auf der Insel --- */
   const tower = place(bottleLighthouse(), 22, -24, 1.2, { scale: 1.15, geos: lighthouseGeos() });
+  await pause();
   const teapot = place(teapotHouse(), 31, -14.5, 1.9, { turn: -0.25 });
+  await pause();
   place(sardineTrailer(), -32, -6, 2.0, { turn: 1.2 });
+  await pause();
   place(bootHouse(), -31, 15, 1.7, { turn: -0.2, geos: bootGeos() });
+  await pause();
   const mailboxes = [[28.6, -12.4, 0xf28aa8], [-29.4, -4.6, 0x2fae8f], [-28.6, 13.4, 0xe2574c]];
   for (const [x, z, c] of mailboxes) {
     const { geo } = vox(mailbox(c), U);

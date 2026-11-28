@@ -394,7 +394,7 @@ function hangerParts() {
 }
 
 /* ---------- Aufbau ---------- */
-export function buildPlaces(scene, { heightAt, obstacles, plateaus, plateauCorals, mat, glowMat, constellation, boardMesh, drawBoard, env }) {
+export async function buildPlaces(scene, { heightAt, obstacles, plateaus, plateauCorals, mat, glowMat, constellation, boardMesh, drawBoard, env }, pause = async () => {}) {
   const updaters = [];
   const vents = [];
   const sign = (key, style, w = 1.6) => boardMesh(drawBoard(t(key), { style, W: 300, H: 70, k: 2 }), w);
@@ -440,6 +440,7 @@ export function buildPlaces(scene, { heightAt, obstacles, plateaus, plateauCoral
     return g;
   }
 
+  await pause();
   /* 1. Sternwarte auf dem großen Plateau hinten rechts (freiester Platz zwischen den Korallen) */
   {
     const pl = plateaus[1];
@@ -487,6 +488,7 @@ export function buildPlaces(scene, { heightAt, obstacles, plateaus, plateauCoral
     });
   }
 
+  await pause();
   /* 3. Papierschiff-Wrack mit Café: auf einer Sandbank rechts neben dem Leuchtturm,
         damit es in der Startansicht über den Inselrand ragt */
   const foam = [];
@@ -536,6 +538,7 @@ export function buildPlaces(scene, { heightAt, obstacles, plateaus, plateauCoral
     vents.push(ship.localToWorld(new THREE.Vector3(0, SH + SAIL - 0.2, 0)), ship.localToWorld(new THREE.Vector3(2.4, 2.2, 1.4)));
   }
 
+  await pause();
   /* 4. Blubberbad zwischen Sardinendose und Stiefelhaus */
   {
     const [x, z] = PLACE_SPOTS.bath;
@@ -549,6 +552,7 @@ export function buildPlaces(scene, { heightAt, obstacles, plateaus, plateauCoral
     for (const [lx, lz] of [[-0.6, 0], [0.2, -0.2], [0.9, 0.25]]) foam.push(g.localToWorld(new THREE.Vector3(lx, 1.05, lz)));
   }
 
+  await pause();
   /* 5. Spielplatz am Inselrand vorne rechts */
   {
     const [x, z] = PLACE_SPOTS.play;
@@ -597,5 +601,6 @@ export function buildPlaces(scene, { heightAt, obstacles, plateaus, plateauCoral
     });
   }
 
+  await pause();
   return { update: (dt, time) => { for (const u of updaters) u(dt, time); }, vents, foam };
 }

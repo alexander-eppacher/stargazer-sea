@@ -2,6 +2,41 @@
 
 Alle sichtbaren Änderungen an Stargazer Sea, die neuesten oben.
 
+## 2026-11-28
+
+### Neu
+- **Neue Oberfläche:** ruhiger und aufgeräumter, im Stil von iOS/macOS – warmes Papier-Mattglas mit feiner
+  Faser, runde Schrift (SF Rounded auf Apple-Geräten, sonst Nunito), runde Knöpfe, nichts mehr schief.
+  Am Tag hell, nachts im Meer dunkel. Die Pixel-Schrift gibt es nur noch im Logo.
+- **Oben rechts aufgeräumt:** Album, Ton und Einstellungen in einer gemeinsamen Leiste; Suche, „Krabbe des
+  Tages“ und „Bist du schon im Meer?“ in einer Karte mit Listenzeilen.
+- **Einstellungen** (Zahnrad oben rechts; am PC eine Leiste von rechts, am Handy ein Blatt von unten):
+  - **Auf einen Blick:** Qualität Auto/Hoch/Mittel/Niedrig, Geräusche an/aus, Deutsch/Englisch,
+    Aussehen Auto/Hell/Dunkel, Kamera-Tempo
+  - **Unter „Mehr“:** Schatten, Leuchten, Bildrate anzeigen, Lautstärke für Meer und Blubbern getrennt,
+    „Seltenheiten“ und „Neu im Meer“, Namen über Krabben, Hinweise, von selbst drehen
+  - Alles wird nur im Browser gespeichert, „Auf Standard zurücksetzen“ stellt alles zurück.
+- **Handy:** Album, Ton und Einstellungen sitzen oben rechts, unten bleibt Platz für Stern-Knopf und Suche.
+- **Reinfliegen nach dem Laden:**
+  - Der Flug startet mit Schwung, statt erst stehen zu bleiben: der Tauchgang aus dem Ladebild geht nahtlos weiter.
+  - Kleinere Ladekarte unten statt mitten im Bild, damit man den Tauchgang sieht.
+  - Weniger Hänger beim Reinfliegen: die Krabben und Namensschilder werden schon beim Laden für die Grafikkarte
+    vorbereitet, nicht erst wenn sie ins Meer plumpsen; ein langsames Bild hält den Flug nicht mehr an.
+  - Der Tauchgang im Ladebild läuft auf Geräten mit mehreren Kernen mit 60 statt 30 Bildern pro Sekunde.
+  - Kaum noch Einfrieren im Ladebild (längster Hänger am PC vorher ~0,38 s, jetzt ~0,1 s): Insel und Stadt werden in
+    vielen kleinen Abschnitten gebaut, das Probebild vor dem Start wird Teil für Teil in einem winzigen Zwischenbild
+    im richtigen Format gemalt (sonst übersetzt Windows beim ersten Bild alles noch einmal), Bilder und Formen gehen
+    in kleinen Portionen auf die Grafikkarte.
+  - Das Kopfsteinpflaster der Muschelgasse teilt sich eine einzige Steinform (vorher ~170 000 Ecken, fast die Hälfte
+    aller Formdaten der Insel) – sieht gleich aus, lädt schneller und braucht weniger Speicher.
+  - Der Tauchgang im Ladebild läuft endlos gleichmäßig weiter, solange geladen wird – mit immer neuem Seetang,
+    Fischen und Blasen, statt nach ein paar Sekunden fast stehen zu bleiben.
+  - Klicken, Wischen, Scrollen oder eine Taste kürzt den Flug ab; beim wiederholten Besuch ist er kürzer (3,2 statt 5,5 s).
+  - Das Ladebild kennt die Tageszeit und endet genau in der Wasserfarbe des Meers – kein Sprung mehr von
+    dunkelblau zu taghell. Nachts mit Mond und Sternen und dunkler Ladekarte.
+  - Der Flug endet etwas höher und weiter hinten: Stadt, Leuchtturm und Krabbenwiese sind gleich ganz im Bild
+    (gilt auch für den Knopf „Startansicht“).
+
 ## 2026-11-23
 
 ### Neu
