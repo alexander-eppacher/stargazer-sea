@@ -54,7 +54,8 @@ The clock starts with your first star and is the same for every visitor. In the 
 - 🌙 Day and night based on your local time, 🎄 winter and 🎃 Halloween decorations, 🎈 crab day on the anniversary of your star
 - ⭐ Crab of the day, a treasure chest with confetti, quiet underwater sounds (off by default)
 - 🌊 A dive while loading (tap to skip); the operating system’s “reduce motion” setting is respected
-- 🌍 German and English: switch at the top left (otherwise it follows your browser language)
+- ⚙️ Settings (gear at the top right): quality, shadows, glow, volume, language, camera speed, light/dark and what is shown
+- 🌍 German and English: switch in the settings (otherwise it follows your browser language)
 
 ## Questions and answers
 
@@ -145,6 +146,7 @@ Note: GitHub disables scheduled workflows in public repos after 60 days without 
 | `js/intro.js` | Dive while loading |
 | `js/i18n.js`, `js/lang.js` | All texts in German and English, language switch |
 | `js/sound.js` | Underwater ambient pad and bubbles (CC0) |
+| `js/settings.js` | Settings (side panel, saved in the browser) |
 | `crabs.json` | All crabs (maintained by the Action) |
 | `data/rarities.json` | Rarities, hats, chances |
 | `tests/` | Automated tests |

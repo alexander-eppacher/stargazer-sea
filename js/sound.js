@@ -6,9 +6,12 @@
 const KEY = 'stargazer-sea-sound';
 const BASE = 'assets/sounds/';
 
-let ac = null, master = null, started = false, enabled = false, bubbleTimer = null;
+let ac = null, master = null, seaBus = null, fxBus = null, vol = { sea: 0.8, fx: 0.8 }, started = false, enabled = false, bubbleTimer = null;
 let buffers = { meer: null, blasen: [], blops: [] };
 let loading = null, ambientNodes = [], usingRecording = false;
+
+// Regler 0–1 → Verstärkung; gebogen, damit er sich gleichmäßig anfühlt. 0,8 (Standard) = wie früher.
+const curve = (v) => (v * v) / 0.64;
 
 function store(v) { try { localStorage.setItem(KEY, v ? '1' : '0'); } catch { /* egal */ } }
 export function wantedBefore() { try { return localStorage.getItem(KEY) === '1'; } catch { return false; } }
@@ -43,6 +46,9 @@ function setup() {
   master = ac.createGain();
   master.gain.value = 0;
   master.connect(ac.destination);
+  // zwei Regler: Klangteppich (Meer) und Geräusche (Blubbern, Glöckchen)
+  seaBus = ac.createGain(); seaBus.gain.value = curve(vol.sea); seaBus.connect(master);
+  fxBus = ac.createGain(); fxBus.gain.value = curve(vol.fx); fxBus.connect(master);
   started = true;
   return true;
 }
@@ -56,7 +62,7 @@ function startAmbientRecording(buf) {
   lp.Q.value = 0.5;
   const out = ac.createGain();
   out.gain.value = 0.75;
-  lp.connect(out).connect(master);
+  lp.connect(out).connect(seaBus);
   ambientNodes.push(lp, out);
   const XF = 2; // Sekunden Überblendung (verdeckt auch die kleine Lücke am Ende von MP3-Dateien)
   const play = (when) => {
@@ -93,7 +99,7 @@ function startAmbientSynth() {
   lp.type = 'lowpass'; lp.frequency.value = 420; lp.Q.value = 0.6;
   const amb = ac.createGain();
   amb.gain.value = 0.55;
-  noise.connect(lp).connect(amb).connect(master);
+  noise.connect(lp).connect(amb).connect(seaBus);
   noise.start();
 }
 
@@ -107,7 +113,7 @@ export function bubble(strength = 1) {
     src.playbackRate.value = 0.85 + Math.random() * 0.4;
     const g = ac.createGain();
     g.gain.value = 0.45 * strength;
-    src.connect(g).connect(master);
+    src.connect(g).connect(fxBus);
     src.start(t);
     return;
   }
@@ -120,7 +126,7 @@ export function bubble(strength = 1) {
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(0.09 * strength, t + 0.012);
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
-  o.connect(g).connect(master);
+  o.connect(g).connect(fxBus);
   o.start(t);
   o.stop(t + 0.15);
 }
@@ -143,7 +149,7 @@ function bubbleBurst() {
   g.gain.linearRampToValueAtTime(0.26, t + 0.08);
   g.gain.setValueAtTime(0.26, t + len - 0.15);
   g.gain.linearRampToValueAtTime(0, t + len);
-  src.connect(lp).connect(g).connect(master);
+  src.connect(lp).connect(g).connect(fxBus);
   src.start(t, off, len + 0.05);
 }
 
@@ -159,7 +165,7 @@ export function chime() {
     g.gain.setValueAtTime(0.0001, s);
     g.gain.exponentialRampToValueAtTime(0.07, s + 0.02);
     g.gain.exponentialRampToValueAtTime(0.0001, s + 0.35);
-    o.connect(g).connect(master);
+    o.connect(g).connect(fxBus);
     o.start(s);
     o.stop(s + 0.4);
   });
@@ -174,6 +180,13 @@ function scheduleBubbles() {
 }
 
 export function isOn() { return enabled; }
+
+/** Lautstärken 0–1 für Meer und Blubbern (gilt sofort, auch vor dem ersten Einschalten). */
+export function setVolumes(sea, fx) {
+  vol = { sea, fx };
+  if (seaBus) seaBus.gain.setTargetAtTime(curve(sea), ac.currentTime, 0.08);
+  if (fxBus) fxBus.gain.setTargetAtTime(curve(fx), ac.currentTime, 0.08);
+}
 export function usesRecording() { return usingRecording; }
 
 export async function setSound(on) {

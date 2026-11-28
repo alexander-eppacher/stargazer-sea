@@ -21,8 +21,12 @@
   <link rel="icon" href="assets/crab.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&amp;family=Nunito:wght@400;700;800&amp;display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&amp;family=Nunito:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <script>
+    // Aussehen (Auto/Hell/Dunkel) schon vor dem ersten Bild setzen, damit nichts aufblitzt
+    try { var st = JSON.parse(localStorage.getItem('stargazer.einstellungen') || '{}'); if (st.theme === 'light' || st.theme === 'dark') document.documentElement.dataset.theme = st.theme; } catch (e) { /* egal */ }
+  </script>
   <script src="js/i18n.js"></script>
   <script type="importmap">
     {
@@ -56,10 +60,6 @@
       <h1>Stargazer Sea</h1>
       <p class="sub"><span id="crab-count">0</span> <span data-i18n="title.sub">Krabben leben hier</span></p>
     </div>
-    <div class="lang-switch" role="group" data-i18n-attr="aria-label:lang.label">
-      <button type="button" data-lang="de" lang="de" title="Deutsch">DE</button>
-      <button type="button" data-lang="en" lang="en" title="English">EN</button>
-    </div>
   </header>
 
   <!-- Aktionen oben rechts -->
@@ -68,23 +68,35 @@
       <a id="star-btn" class="btn btn-star" href="#" target="_blank" rel="noopener">
         <span class="star-icon" data-ic="star"></span> <span class="star-label" data-i18n="star.label">Jeder Stern wird zur Krabbe</span>
       </a>
-      <button id="album-btn" class="btn icon-btn" data-i18n-attr="title:album.title" title="Sammelalbum"><span data-ic="book"></span><span id="album-badge" class="badge hidden"></span></button>
-      <button id="sound-btn" class="btn icon-btn" aria-pressed="false" data-i18n-attr="title:sound.on" title="Unterwasser-Geräusche an"><span data-ic="soundOff"></span></button>
+      <div class="tools">
+        <button id="album-btn" class="btn icon-btn" data-i18n-attr="title:album.title" title="Sammelalbum"><span data-ic="book"></span><span id="album-badge" class="badge hidden"></span></button>
+        <button id="sound-btn" class="btn icon-btn" aria-pressed="false" data-i18n-attr="title:sound.on" title="Unterwasser-Geräusche an"><span data-ic="soundOff"></span></button>
+        <button id="settings-btn" class="btn icon-btn" aria-expanded="false" aria-controls="settings" data-i18n-attr="title:set.open,aria-label:set.open" title="Einstellungen" aria-label="Einstellungen"><span data-ic="gear"></span></button>
+      </div>
     </div>
-    <div class="search panel">
-      <input id="search" type="search" placeholder="Finde deine Krabbe… (@name)" data-i18n-attr="placeholder:search.placeholder" autocomplete="off" spellcheck="false" />
-      <ul id="search-results"></ul>
+    <!-- eine Karte: Suche, Krabbe des Tages, „Bist du schon im Meer?“, Warten aufs Schlüpfen -->
+    <div class="hub panel">
+      <div class="search">
+        <span class="search-ic" data-ic="search"></span>
+        <input id="search" type="search" placeholder="Finde deine Krabbe… (@name)" data-i18n-attr="placeholder:search.placeholder" autocomplete="off" spellcheck="false" />
+        <ul id="search-results"></ul>
+      </div>
+      <div id="wait-chip" class="hub-row hidden" role="status">
+        <span class="wait-main"><span class="hub-ic wait-egg" data-ic="egg"></span><span><b id="wait-name"></b><small id="wait-text"></small></span></span>
+        <button id="wait-other" class="btn mini" data-i18n="wait.other">Anderer Name</button>
+        <button id="wait-cancel" class="btn mini" aria-label="Warten beenden" data-i18n-attr="aria-label:wait.cancel"><span data-ic="x"></span></button>
+      </div>
+      <button id="cotd" class="hub-row hidden" type="button" title="Zur Krabbe des Tages" data-i18n-attr="title:cotd.go">
+        <span class="hub-ic cotd-star" data-ic="star"></span>
+        <span class="cotd-text"><small data-i18n="cotd">Krabbe des Tages</small><b id="cotd-name"></b></span>
+        <span class="chevron" aria-hidden="true">›</span>
+      </button>
+      <button id="find-me" class="hub-row find-me hidden" type="button">
+        <span class="hub-ic find-ic" data-ic="crab"></span>
+        <span class="hub-label" data-i18n="find.btn">Bist du schon im Meer?</span>
+        <span class="chevron" aria-hidden="true">›</span>
+      </button>
     </div>
-    <button id="find-me" class="btn mini find-me hidden" type="button"><span data-ic="crab"></span> <span data-i18n="find.btn">Bist du schon im Meer?</span></button>
-    <div id="wait-chip" class="panel hidden" role="status">
-      <span class="wait-main"><span class="wait-egg" data-ic="egg"></span><span><b id="wait-name"></b><small id="wait-text"></small></span></span>
-      <button id="wait-other" class="btn mini" data-i18n="wait.other">Anderer Name</button>
-      <button id="wait-cancel" class="btn mini" aria-label="Warten beenden" data-i18n-attr="aria-label:wait.cancel"><span data-ic="x"></span></button>
-    </div>
-    <button id="cotd" class="panel hidden" title="Zur Krabbe des Tages" data-i18n-attr="title:cotd.go">
-      <span class="cotd-star" data-ic="star"></span>
-      <span class="cotd-text"><small data-i18n="cotd">Krabbe des Tages</small><b id="cotd-name"></b></span>
-    </button>
   </div>
 
   <!-- Seltenheiten -->
@@ -103,6 +115,68 @@
     </button>
     <ul id="newest-list"></ul>
   </aside>
+
+  <!-- Einstellungen (rechts, am Handy von unten) -->
+  <div id="settings-scrim" class="hidden"></div>
+  <aside id="settings" class="sheet hidden" role="dialog" aria-labelledby="settings-title" tabindex="-1">
+    <div class="sheet-grab" aria-hidden="true"></div>
+    <header class="sheet-head">
+      <button id="settings-back" class="sheet-back" type="button" tabindex="-1"><span aria-hidden="true">‹</span> <span data-i18n="set.title">Einstellungen</span></button>
+      <h2 id="settings-title"><span class="t-main" data-i18n="set.title">Einstellungen</span><span class="t-more" data-i18n="set.more">Mehr</span></h2>
+      <button id="settings-close" class="sheet-done" type="button" data-i18n="set.done">Fertig</button>
+    </header>
+    <div class="sheet-pages">
+      <div class="sheet-body page-main">
+        <div class="group">
+          <div class="row col"><span data-i18n="set.quality">Qualität</span>
+            <div class="seg" role="radiogroup" data-set="quality"><button type="button" role="radio" data-v="auto" data-i18n="set.q.auto"></button><button type="button" role="radio" data-v="high" data-i18n="set.q.high"></button><button type="button" role="radio" data-v="mid" data-i18n="set.q.mid"></button><button type="button" role="radio" data-v="low" data-i18n="set.q.low"></button></div>
+            <small class="row-note" data-i18n="set.qualityNote"></small></div>
+          <label class="row"><span data-i18n="set.sound"></span><input type="checkbox" class="switch" data-set="sound" /></label>
+          <div class="row"><span data-i18n="set.lang">Sprache</span>
+            <div class="seg" role="radiogroup" data-i18n-attr="aria-label:lang.label">
+              <button type="button" role="radio" data-lang="de" lang="de">Deutsch</button><button type="button" role="radio" data-lang="en" lang="en">English</button>
+            </div></div>
+          <div class="row col"><span data-i18n="set.theme">Aussehen</span>
+            <div class="seg" role="radiogroup" data-set="theme"><button type="button" role="radio" data-v="auto" data-i18n="set.t.auto"></button><button type="button" role="radio" data-v="light" data-i18n="set.t.light"></button><button type="button" role="radio" data-v="dark" data-i18n="set.t.dark"></button></div>
+            <small class="row-note" data-i18n="set.themeNote"></small></div>
+          <div class="row col"><span data-i18n="set.camSpeed">Kamera-Tempo</span>
+            <div class="slider-wrap"><small data-i18n="set.slow"></small><input type="range" class="slider" data-set="camSpeed" min="0.5" max="2" step="0.05" data-i18n-attr="aria-label:set.camSpeed" /><small data-i18n="set.fast"></small></div></div>
+        </div>
+
+        <div class="group">
+          <button id="settings-more" class="row row-link" type="button"><span data-i18n="set.more">Mehr</span><small class="row-hint" data-i18n="set.moreHint"></small><span class="chevron" aria-hidden="true">›</span></button>
+        </div>
+        <p class="sheet-note" data-i18n="set.note"></p>
+      </div>
+
+      <div class="sheet-body page-more" aria-hidden="true">
+        <h3 data-i18n="set.gfx">Grafik</h3>
+        <div class="group">
+          <label class="row"><span data-i18n="set.shadows"></span><input type="checkbox" class="switch" data-set="shadows" /></label>
+          <label class="row"><span data-i18n="set.bloom"></span><input type="checkbox" class="switch" data-set="bloom" /></label>
+          <label class="row"><span data-i18n="set.fps"></span><input type="checkbox" class="switch" data-set="fps" /></label>
+        </div>
+
+        <h3 data-i18n="set.volume">Lautstärke</h3>
+        <div class="group">
+          <label class="row"><span data-i18n="set.volSea">Meer</span><input type="range" class="slider" data-set="volSea" min="0" max="1" step="0.01" /></label>
+          <label class="row"><span data-i18n="set.volFx">Blubbern</span><input type="range" class="slider" data-set="volFx" min="0" max="1" step="0.01" /></label>
+        </div>
+
+        <h3 data-i18n="set.view">Anzeige</h3>
+        <div class="group">
+          <label class="row"><span data-i18n="set.legend"></span><input type="checkbox" class="switch" data-set="legend" /></label>
+          <label class="row"><span data-i18n="set.newest"></span><input type="checkbox" class="switch" data-set="newest" /></label>
+          <label class="row"><span data-i18n="set.labels"></span><input type="checkbox" class="switch" data-set="labels" /></label>
+          <label class="row"><span data-i18n="set.hints"></span><input type="checkbox" class="switch" data-set="hints" /></label>
+          <label class="row"><span data-i18n="set.autoRotate"></span><input type="checkbox" class="switch" data-set="autoRotate" /></label>
+        </div>
+
+        <button id="settings-reset" class="sheet-link" type="button" data-i18n="set.reset">Auf Standard zurücksetzen</button>
+      </div>
+    </div>
+  </aside>
+  <div id="fps" class="hidden" aria-hidden="true"></div>
 
   <!-- Krabben-Karte -->
   <div id="card" class="panel hidden">
@@ -188,7 +262,7 @@
       var t0 = performance.now(), lastLabel = '', lastGap = t0;
       window.__loadT0 = t0;
       window.__loadLog = []; window.__loadStalls = [];
-      (function watch() { var n = performance.now(); if (n - lastGap > 250) window.__loadStalls.push([Math.round(lastGap - t0), Math.round(n - lastGap), lastLabel]); lastGap = n; if (!window.__seaReady) requestAnimationFrame(watch); })();
+      (function watch() { var n = performance.now(); if (n - lastGap > 90) window.__loadStalls.push([Math.round(lastGap - t0), Math.round(n - lastGap), lastLabel]); lastGap = n; if (!window.__seaReady) requestAnimationFrame(watch); })();
       window.__load = {
         set: function (p, label) {
           if (label && label !== lastLabel) { lastLabel = label; window.__loadLog.push([Math.round(performance.now() - t0), Math.round(p), label]); }

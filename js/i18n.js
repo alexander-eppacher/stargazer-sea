@@ -112,6 +112,19 @@
       'demo.banner': 'Noch keine Sterne – gib den ersten, dann zieht deine Krabbe hier ein.',
       'hint': 'Ziehen = drehen · WASD = schieben · Scrollen = zoomen · Krabbe anklicken',
       'home.title': 'Startansicht',
+      // Einstellungen
+      'set.title': 'Einstellungen', 'set.open': 'Einstellungen', 'set.done': 'Fertig',
+      'set.gfx': 'Grafik', 'set.more': 'Mehr', 'set.moreHint': 'Schatten, Lautstärke, Anzeige', 'set.volume': 'Lautstärke', 'set.quality': 'Qualität',
+      'set.q.auto': 'Auto', 'set.q.high': 'Hoch', 'set.q.mid': 'Mittel', 'set.q.low': 'Niedrig',
+      'set.qualityNote': 'Auto senkt die Qualität von selbst, wenn es ruckelt.',
+      'set.shadows': 'Schatten', 'set.bloom': 'Leuchten', 'set.fps': 'Bildrate anzeigen',
+      'set.audio': 'Ton & Sprache', 'set.sound': 'Unterwasser-Geräusche', 'set.volSea': 'Meer', 'set.volFx': 'Blubbern',
+      'set.lang': 'Sprache',
+      'set.view': 'Anzeige', 'set.camSpeed': 'Kamera-Tempo', 'set.autoRotate': 'Von selbst drehen',
+      'set.theme': 'Aussehen', 'set.t.auto': 'Auto', 'set.themeNote': 'Auto: am Tag hell, nachts im Meer dunkel.', 'set.t.light': 'Hell', 'set.t.dark': 'Dunkel',
+      'set.labels': 'Namen über Krabben', 'set.hints': 'Hinweise', 'set.legend': 'Seltenheiten', 'set.newest': 'Neu im Meer',
+      'set.reset': 'Auf Standard zurücksetzen', 'set.note': 'Wird nur in diesem Browser gespeichert.',
+      'set.slow': 'Langsam', 'set.fast': 'Schnell', 'search.clear': 'Suche leeren',
       'hint.touch': 'Wischen = drehen · Zwei Finger = zoomen & schieben · Krabbe antippen',
 
       // Stern-Ablauf
@@ -335,6 +348,19 @@
       'demo.banner': 'No stars yet – give the first one and your crab moves in.',
       'hint': 'Drag = rotate · WASD = move · Scroll = zoom · Click a crab',
       'home.title': 'Start view',
+      // Settings
+      'set.title': 'Settings', 'set.open': 'Settings', 'set.done': 'Done',
+      'set.gfx': 'Graphics', 'set.more': 'More', 'set.moreHint': 'Shadows, volume, display', 'set.volume': 'Volume', 'set.quality': 'Quality',
+      'set.q.auto': 'Auto', 'set.q.high': 'High', 'set.q.mid': 'Medium', 'set.q.low': 'Low',
+      'set.qualityNote': 'Auto lowers the quality by itself when things stutter.',
+      'set.shadows': 'Shadows', 'set.bloom': 'Glow', 'set.fps': 'Show frame rate',
+      'set.audio': 'Sound & language', 'set.sound': 'Underwater sounds', 'set.volSea': 'Ocean', 'set.volFx': 'Bubbles',
+      'set.lang': 'Language',
+      'set.view': 'Display', 'set.camSpeed': 'Camera speed', 'set.autoRotate': 'Rotate when idle',
+      'set.theme': 'Appearance', 'set.t.auto': 'Auto', 'set.themeNote': 'Auto: light by day, dark when it is night in the sea.', 'set.t.light': 'Light', 'set.t.dark': 'Dark',
+      'set.labels': 'Names above crabs', 'set.hints': 'Hints', 'set.legend': 'Rarities', 'set.newest': 'New in the sea',
+      'set.reset': 'Reset to defaults', 'set.note': 'Saved in this browser only.',
+      'set.slow': 'Slow', 'set.fast': 'Fast', 'search.clear': 'Clear search',
       'hint.touch': 'Swipe = rotate · Two fingers = zoom & move · Tap a crab',
 
       'join.title': 'Every star becomes a crab',
@@ -517,6 +543,8 @@
     link: ['M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1', 'M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1'],
     save: ['M12 4v11M7.5 10.5L12 15l4.5-4.5', 'M5 19.5h14'],
     home: ['M4 11.5L12 5l8 6.5', 'M6.5 9.8V19h11V9.8', 'M10 19v-5h4v5'],
+    gear: ['M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', 'M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z'],
+    search: ['M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13z', 'M15.5 15.5L20 20'],
     pin: ['M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z', 'M12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z'],
   };
   function icon(name) {

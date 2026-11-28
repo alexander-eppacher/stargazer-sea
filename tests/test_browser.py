@@ -118,6 +118,45 @@ class BrowserTest(unittest.TestCase):
         self.assertEqual(page.locator("#album .al-progress li").count(), 6)
         self.assertEqual(errors, [])
 
+    def test_settings(self):
+        page, errors = self.open()
+        page.click("#settings-btn")
+        page.wait_for_selector("#settings:not(.hidden)")
+        # Schalter unter „Mehr“: Seltenheiten ausblenden, wird gemerkt
+        page.click("#settings-more")
+        page.click("#settings label.row:has([data-set='legend'])")
+        page.click("#settings-back")
+        self.assertFalse(page.is_visible("#legend"))
+        # Qualität fest auf Niedrig: Stufe 3, Auto misst nicht mehr
+        page.click("[data-set='quality'] [data-v='low']")
+        self.assertEqual(page.evaluate("__sea.quality.level"), 3)
+        self.assertEqual(page.get_attribute("[data-set='quality'] [data-v='low']", "aria-checked"), "true")
+        page.click("[data-set='theme'] [data-v='dark']")
+        self.assertEqual(page.evaluate("document.documentElement.dataset.theme"), "dark")
+        saved = page.evaluate("JSON.parse(localStorage.getItem('stargazer.einstellungen'))")
+        self.assertEqual(saved, {"legend": False, "quality": "low", "theme": "dark"})
+        # Escape: erst zurück von „Mehr“, dann zu
+        page.click("#settings-more")
+        page.keyboard.press("Escape")
+        self.assertTrue(page.is_visible("#settings-more"))
+        page.keyboard.press("Escape")
+        page.wait_for_selector("#settings", state="hidden")
+        # Neu laden: Werte bleiben
+        page.reload()
+        page.wait_for_selector("html[data-bereit='1']", state="attached", timeout=SLOW)
+        self.assertEqual(page.evaluate("__sea.quality.level"), 3)
+        self.assertEqual(page.evaluate("document.documentElement.dataset.theme"), "dark")
+        self.assertFalse(page.is_visible("#legend"))
+        # Zurücksetzen
+        page.evaluate("__sea.skip()")
+        page.click("#settings-btn")
+        page.click("#settings-more")
+        page.click("#settings-reset")
+        self.assertEqual(page.evaluate("__sea.quality.level"), 0)
+        self.assertEqual(page.evaluate("localStorage.getItem('stargazer.einstellungen')"), "{}")
+        self.assertIsNone(page.evaluate("document.documentElement.dataset.theme"))
+        self.assertEqual(errors, [])
+
     def test_language_switch(self):
         # Englischer Browser -> englische Seite
         page, errors = self.open(locale="en-US")
@@ -133,7 +172,8 @@ class BrowserTest(unittest.TestCase):
         page.wait_for_selector("#album .al-progress li", timeout=SLOW)
         self.assertEqual(page.text_content("#album h2"), "Collector’s album")
         page.evaluate("__sea.closeAlbum()")
-        # Umschalten auf Deutsch: wird gemerkt
+        # Umschalten auf Deutsch (in den Einstellungen): wird gemerkt
+        page.click("#settings-btn")
         page.click("[data-lang='de']")
         page.wait_for_url("**lang=de*", timeout=SLOW)
         page.wait_for_selector("html[data-bereit='1']", state="attached", timeout=SLOW)
@@ -152,8 +192,9 @@ class BrowserTest(unittest.TestCase):
         ctx = self.browser.new_context(viewport={"width": 1280, "height": 720}, timezone_id="Europe/Vienna", locale="de-DE")
         page, _ = self.open(ctx=ctx)
         self.assertEqual(page.evaluate("window.__introMin"), 3000, "erster Besuch: 3 s")
+        page.close()  # Software-Grafik: zwei Meere gleichzeitig bremsen sich gegenseitig stark aus (der Speicher bleibt)
         page2 = ctx.new_page()
-        page2.goto(self.base + "?keineHinweise")
+        page2.goto(self.base + "?keineHinweise", timeout=SLOW)
         self.assertEqual(page2.evaluate("window.__introMin"), 1200, "danach: 1,2 s")
         page2.keyboard.press("Space")
         self.assertTrue(page2.evaluate("window.__introSkipped"))
@@ -472,7 +513,8 @@ class BrowserTest(unittest.TestCase):
         page.wait_for_selector("#home-btn:not(.hidden)", timeout=5000)
         page.click("#home-btn")
         page.wait_for_function("!__sea.fly && document.getElementById('home-btn').classList.contains('hidden')", timeout=10000)
-        self.assertAlmostEqual(self.cam(page)["r"], a["r"], delta=1)
+        # Startansicht: Kamera (0, 15.5, 40), Blickpunkt (0, 2.5, -3) → Abstand √(13² + 43²) ≈ 44,9
+        self.assertAlmostEqual(self.cam(page)["r"], (13 ** 2 + 43 ** 2) ** 0.5, delta=1)
         # knapp neben eine Krabbe tippen (20 px) → ausgewählt
         xy = page.evaluate("""(() => { const v = new __sea.camera.position.constructor();
             for (const c of __sea.crabs.values()) { c.worldPos(v).y += 0.35 * c.growScale; v.project(__sea.camera);
@@ -485,8 +527,9 @@ class BrowserTest(unittest.TestCase):
         # Doppeltippen auf freien Boden → hinfliegen, Abstand halbiert
         self.home(page)
         r0 = self.cam(page)["r"]
-        page.tap(195, 560)
-        page.tap(198, 562, gap=120)
+        y = page.evaluate("document.getElementById('hud-actions').getBoundingClientRect().top") - 60  # freier Boden über der Leiste unten
+        page.tap(195, y)
+        page.tap(198, y + 2, gap=120)
         page.wait_for_timeout(300)
         page.wait_for_function("!__sea.fly", timeout=30000)
         self.assertAlmostEqual(self.cam(page)["r"], r0 / 2, delta=1.5)

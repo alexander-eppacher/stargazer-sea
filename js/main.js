@@ -16,14 +16,20 @@ import { growthOf, newsBetween, timeLeft, untilText, STAGES, UNLOCK } from './gr
 import { shared } from './shaders.js';
 import { t as tr, locale } from './lang.js';
 import { setupTouch, TOUCH } from './touch.js';
+import * as settings from './settings.js';
 import { mulberry32, hashString, range, pick, easeInOut, clamp } from './util.js';
 
 const $ = (id) => document.getElementById(id);
+const S = settings.S;
 const POLL_MS = 90_000;
 const LOAD = window.__load || { set() {} };
 // kurz Luft holen, damit der Browser die Ladeanzeige zeichnen kann (auch in Hintergrund-Tabs)
 const tick = () => new Promise((r) => { requestAnimationFrame(() => r()); setTimeout(r, 60); });
 const params = new URLSearchParams(location.search);
+// ?ladezeit (Ladeschritte und Hänger ausmessen) nur beim Testen im eigenen Netz, nicht auf der öffentlichen Seite
+const MEASURE = params.has('ladezeit') && /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)|\.local$/.test(location.hostname);
+/** Text der Ladeanzeige während der Vorbereitung; beim Messen mit Schritt-Kennung (A…D, 1/3…3/3). */
+const warmLabel = (step) => (MEASURE ? `${tr('load.warm')} (${step})` : tr('load.warm'));
 // Browser-Speicher (kann gesperrt sein – dann läuft alles trotzdem)
 const store = {
   get(k) { try { return localStorage.getItem(`stargazer.${k}`); } catch { return null; } },
@@ -77,7 +83,9 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 1500);
 // Start direkt unter der Wasseroberfläche (von dort taucht die Intro-Kamera hinab)
 const INTRO_FROM = new THREE.Vector3(13, 31.5, 46), INTRO_CTRL = new THREE.Vector3(-11, 22, 44);
-camera.position.copy(REDUCED ? new THREE.Vector3(0, 11, 34) : INTRO_FROM);
+// Startansicht: etwas erhöht, damit Stadt, Leuchtturm und Krabbenwiese ganz zu sehen sind
+const HOME_POS = new THREE.Vector3(0, 15.5, 40), HOME_TARGET = new THREE.Vector3(0, 2.5, -3);
+camera.position.copy(REDUCED ? HOME_POS : INTRO_FROM);
 
 const hemi = new THREE.HemisphereLight(0xe2f8ff, 0x7fa9b8, 0.95);
 scene.add(hemi);
@@ -175,7 +183,6 @@ const touch = setupTouch({ canvas, camera, controls, reduced: () => REDUCED, lim
 for (const ev of ['gesturestart', 'gesturechange']) canvas.addEventListener(ev, (e) => e.preventDefault());
 
 // Knopf „Startansicht“ (Handy): erscheint, sobald die Kamera woanders ist, fliegt zurück
-const HOME_POS = new THREE.Vector3(0, 11, 34), HOME_TARGET = new THREE.Vector3(0, 1.4, 0);
 const COARSE = matchMedia('(pointer: coarse)').matches || params.has('touch');
 $('home-btn').addEventListener('click', () => {
   if (selected) select(null);
@@ -191,7 +198,8 @@ function updateHomeBtn() {
   $('home-btn').classList.toggle('hidden', !away);
 }
 
-let idleTimer = null;
+let idleTimer = null, lastInputAt = performance.now();
+for (const ev of ['pointerdown', 'wheel', 'keydown', 'touchstart']) addEventListener(ev, () => { lastInputAt = performance.now(); }, { passive: true, capture: true });
 controls.addEventListener('start', () => {
   controls.autoRotate = false;
   fly = null;
@@ -229,7 +237,7 @@ function panByKeys(dt) {
   keyFwd.subVectors(controls.target, camera.position).setY(0);
   if (keyFwd.lengthSq() < 1e-8) return;
   keyFwd.normalize();
-  const speed = THREE.MathUtils.clamp(camera.position.distanceTo(controls.target) * 0.8, 4, 24); // weiter weg = schneller
+  const speed = THREE.MathUtils.clamp(camera.position.distanceTo(controls.target) * 0.8, 4, 24) * S.camSpeed; // weiter weg = schneller
   keyMove.set(keyFwd.x * keyVel.y - keyFwd.z * keyVel.x, 0, keyFwd.z * keyVel.y + keyFwd.x * keyVel.x).multiplyScalar(speed * dt);
   camera.position.add(keyMove);
   controls.target.add(keyMove);
@@ -261,7 +269,11 @@ function dayPhase(h) {
 
 LOAD.set(55, tr('load.reef'));
 await tick();
-const ocean = buildOcean(scene, renderer, camera, { season: SEASON });
+// in Abschnitten bauen: nach spätestens ~25 ms kurz Luft holen (sonst friert die Lade-Animation ein)
+let buildMark = performance.now();
+const ocean = await buildOcean(scene, renderer, camera, { season: SEASON }, async () => {
+  if (performance.now() - buildMark > 25) { await tick(); buildMark = performance.now(); }
+});
 LOAD.set(72, tr('load.reefDone'));
 await tick();
 
@@ -595,7 +607,7 @@ function updateUI() {
   $('legend-list').innerHTML = tiers.map((t) => `
     <li class="${t.id}">
       <span class="gem" style="background:${t.color}; box-shadow:0 0 8px ${t.color}"></span>
-      <span style="color:${t.color}; font-weight:800">${t.name}</span>
+      <span class="tname">${t.name}</span>
       <span class="pct">${((t.weight / totalWeight) * 100).toLocaleString(locale, { maximumFractionDigits: 1 })}%</span>
       <span class="cnt">${counts[t.id]}<small>/${SERIES}</small></span>
       <span class="hats">${t.hats.map((h) => h.name).join(' · ')}</span>
@@ -629,9 +641,12 @@ function setSoundBtn(on) {
   soundBtn.innerHTML = I18N.icon(on ? 'soundOn' : 'soundOff');
   soundBtn.setAttribute('aria-pressed', on);
   soundBtn.title = tr(on ? 'sound.off' : 'sound.on');
+  settings.set('sound', on, { silent: true });
 }
 setSoundBtn(false);
 soundBtn.addEventListener('click', async () => setSoundBtn(await sound.setSound(!sound.isOn())));
+settings.onChange('sound', async (on) => setSoundBtn(await sound.setSound(on)), false);
+for (const k of ['volSea', 'volFx']) settings.onChange(k, () => sound.setVolumes(S.volSea, S.volFx));
 // Wer den Ton schon mal an hatte, bekommt ihn beim ersten Klick irgendwo wieder (Browser erlauben Ton erst nach einer Geste)
 if (sound.wantedBefore()) {
   const resume = async () => { if (!sound.isOn()) setSoundBtn(await sound.setSound(true)); };
@@ -1437,7 +1452,7 @@ const COACH = [
 ];
 let coachStep = -1, coachTimer = null;
 function startCoach() {
-  if (store.get('hinweiseGesehen') === '1' || selected || params.has('keineHinweise')) return false;
+  if (store.get('hinweiseGesehen') === '1' || selected || params.has('keineHinweise') || !S.hints) return false;
   $('hint').style.opacity = 0; // der kleine Dauer-Hinweis kommt erst danach
   coachStep = -1;
   nextCoach();
@@ -1484,7 +1499,12 @@ updateFindMe();
 if (waitFor) { showEgg(); beginFastPoll(); updateWaitChip(); }
 LOAD.set(90, tr('load.shaders'));
 await tick();
-// Shader vorab übersetzen (verhindert Ruckler beim ersten Bild)
+// Shader vorab übersetzen (verhindert Ruckler beim ersten Bild).
+// Auch Unsichtbares kurz einschalten: die Krabben plumpsen erst beim Reinfliegen ins Meer, ihre Namensschilder
+// kommen später – sonst würde die Grafikkarte genau dann übersetzen und der Flug bliebe kurz stehen.
+const warmHidden = [];
+scene.traverse((o) => { if (!o.visible) { warmHidden.push(o); o.visible = true; } });
+const restoreHidden = () => { for (const o of warmHidden.splice(0)) o.visible = false; };
 try {
   if (renderer.extensions.has('KHR_parallel_shader_compile')) await Promise.race([renderer.compileAsync(scene, camera), new Promise((r) => setTimeout(r, 4000))]);
   else {
@@ -1502,13 +1522,17 @@ try {
 LOAD.set(94, tr('load.warm'));
 await tick();
 // Bilder (Texturen) vorab in kleinen Portionen auf die Grafikkarte laden – sonst passiert alles im ersten Bild auf einmal
+LOAD.set(94, warmLabel('A')); // Kennung: zeigt beim Messen, welcher Teil der Vorbereitung hängt
 try {
   const texs = new Set();
   scene.traverse((o) => { for (const m of [].concat(o.material || [])) for (const k of ['map', 'emissiveMap', 'alphaMap', 'normalMap']) if (m[k]?.isTexture) texs.add(m[k]); });
-  let mark = performance.now();
+  // Portionen nach Rechenzeit UND Bildgröße: die Grafikkarte arbeitet im Hintergrund nach, große Bilder stauen sich sonst
+  let mark = performance.now(), px = 0;
   for (const tx of texs) {
     renderer.initTexture(tx);
-    if (performance.now() - mark > 30) { await tick(); mark = performance.now(); }
+    const img = tx.image;
+    px += (img?.width || 0) * (img?.height || 0) * (tx.generateMipmaps ? 1.33 : 1);
+    if (performance.now() - mark > 12 || px > 1.2e6) { await tick(); mark = performance.now(); px = 0; }
   }
 } catch { /* egal */ }
 await tick();
@@ -1517,31 +1541,101 @@ try {
   // in kleinen Schritten mit Pausen dazwischen (viele kurze statt einem langen Hänger):
   // erst nur die Schatten, dann das Bild ohne Nachbearbeitung, dann mit, dann weitere Blickwinkel
   const look = (pos, at) => { camera.position.set(...pos); camera.lookAt(...at); camera.updateMatrixWorld(); };
-  const tiny = () => { renderer.setScissorTest(true); renderer.setScissor(0, 0, 1, 1); renderer.render(scene, camera); renderer.setScissorTest(false); };
+  // 1-Pixel-Probebild – mit Nachbearbeitung genau in das Zwischenbild, in das später auch das echte Bild geht:
+  // Windows-Browser übersetzen die Programme sonst beim ersten echten Bild für dieses Bildformat noch einmal (Hänger)
+  // Ein winziges Zwischenbild im selben Format (Art, Kantenglättung, Farbraum) reicht dafür – das große würde nach
+  // jedem Probebild ganz geglättet und umkopiert (viel Arbeit für die Grafikkarte, die sich dann staut)
+  const warmRT = SW.fx ? new THREE.WebGLRenderTarget(4, 4, { type: rt.texture.type, samples: rt.samples }) : null;
+  if (warmRT) warmRT.texture.colorSpace = rt.texture.colorSpace;
+  const tiny = () => {
+    if (warmRT) {
+      renderer.setRenderTarget(warmRT); renderer.render(scene, camera); renderer.setRenderTarget(null);
+    } else { renderer.setScissorTest(true); renderer.setScissor(0, 0, 1, 1); renderer.render(scene, camera); renderer.setScissorTest(false); }
+  };
+  // Zwischenbilder (Kantenglättung, Leuchten in mehreren Größen) einzeln anlegen – sonst passiert das alles im ersten vollen Bild
+  LOAD.set(94, warmLabel('B'));
+  await tick(); await tick(); // der Grafikkarte kurz Zeit lassen, die Bilder fertig hochzuladen
+  if (SW.fx) {
+    const prevRT = renderer.getRenderTarget();
+    for (const target of [composer.renderTarget1, composer.renderTarget2, bloom.renderTargetBright, ...bloom.renderTargetsHorizontal, ...bloom.renderTargetsVertical]) {
+      if (!target) continue;
+      renderer.setRenderTarget(target); renderer.clear();
+      await tick();
+    }
+    renderer.setRenderTarget(prevRT);
+  }
+
+  // Erst jedes Teil der Szene einzeln (Lichter bleiben an): so landen Formen und Schatten-Daten in vielen kleinen
+  // Portionen auf der Grafikkarte statt in einem großen Hänger – die Lade-Animation läuft dazwischen weiter
+  LOAD.set(94, warmLabel('C'));
+  look(HOME_POS.toArray(), HOME_TARGET.toArray());
+  const parts = scene.children.filter((o) => o.visible && !o.isLight);
+  for (const o of parts) o.visible = false;
+  // Portionen nach Rechenzeit UND Menge an Ecken (Formen werden beim ersten Zeichnen hochgeladen)
+  const vertsOf = (o) => { let n = 0; o.traverse((c) => { const g = c.geometry; if (g?.attributes?.position) n += g.attributes.position.count; }); return n; };
+  let mark = performance.now(), verts = 0;
+  const shadowAuto = renderer.shadowMap.autoUpdate;
+  renderer.shadowMap.autoUpdate = false; // Schatten erst in Schritt 1/3 einmal ganz – nicht bei jedem Teil die ganze Schattenkarte
+  for (const o of parts) {
+    o.visible = true; tiny(); o.visible = false;
+    verts += vertsOf(o);
+    if (performance.now() - mark > 12 || verts > 120_000) { await tick(); mark = performance.now(); verts = 0; }
+  }
+  renderer.shadowMap.autoUpdate = shadowAuto;
+  for (const o of parts) o.visible = true;
+  await tick();
+  // Effekte (Leuchten, Unterwasser-Look, Ausgabe) einzeln übersetzen statt alle beim ersten vollen Bild auf einmal
+  LOAD.set(94, warmLabel('D'));
+  if (SW.fx) {
+    const mats = new Set();
+    for (const pass of composer.passes) for (const v of Object.values(pass)) for (const m of [].concat(v)) if (m?.isMaterial) mats.add(m);
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2)), fxScene = new THREE.Scene();
+    quad.frustumCulled = false; fxScene.add(quad);
+    const prevRT = renderer.getRenderTarget();
+    renderer.setRenderTarget(composer.readBuffer); // wie im Composer: in ein Zwischenbild, nicht auf den Bildschirm
+    for (const m of mats) { quad.material = m; try { renderer.compile(fxScene, camera); } catch { /* egal */ } await tick(); }
+    renderer.setRenderTarget(prevRT);
+    quad.geometry.dispose();
+  }
   const steps = [
-    () => { look([0, 11, 34], [0, 1.4, 0]); renderer.shadowMap.needsUpdate = true; tiny(); },   // Schatten + alles Sichtbare (nur 1 Pixel malen)
+    () => { renderer.shadowMap.needsUpdate = true; tiny(); },                                        // Schatten + alles Sichtbare zusammen (nur 1 Pixel malen)
     () => { look([0, 30, 20], [0, 0, 0]); tiny(); },                                            // Blick von oben: der Rest der Insel
-    () => { look(keep.toArray(), [0, 4, 2]); if (SW.fx) composer.render(0.016); },              // Nachbearbeitung (Leuchten) einmal ganz
+    () => { restoreHidden(); warmRT?.dispose(); look(keep.toArray(), [0, 4, 2]); if (SW.fx) composer.render(0.016); }, // Nachbearbeitung (Leuchten) einmal ganz
   ];
   for (let i = 0; i < steps.length; i++) {
+    LOAD.set(94 + (i * 4) / (steps.length + 1), warmLabel(`${i + 1}/${steps.length}`));
     steps[i]();
     LOAD.set(94 + ((i + 1) * 4) / (steps.length + 1));
     await tick(); // zwischendurch darf die Ladeanimation weiterlaufen
   }
   camera.position.copy(keep); camera.quaternion.copy(q); camera.updateMatrixWorld();
 } catch { /* egal */ }
+restoreHidden();
 LOAD.set(98, tr('load.almost'));
 setInterval(() => { if (!document.hidden) syncCrabs(false); }, POLL_MS);
 
 // Intro-Kamerafahrt: von der Oberfläche in einem Bogen durch Blasen hinunter zum Riff
+// Wer schon einmal da war, bekommt einen kürzeren Flug; Klicken, Wischen oder eine Taste kürzt ihn ab.
+const INTRO_S = window.__introSeen ? 3.2 : 5.5;
 fly = {
-  t: -0.5 / 5.5, dur: REDUCED ? 0.001 : 5.5, // kurz warten, bis die Blasenwolke den Ladebildschirm wegwischt
+  t: 0, dur: REDUCED ? 0.001 : INTRO_S, // sofort los: die Blasenwolke wischt das Ladebild weg, während wir schon tauchen
   fromPos: camera.position.clone(), fromTarget: new THREE.Vector3(0, 4, 2),
-  toPos: new THREE.Vector3(0, 11, 34), toTarget: new THREE.Vector3(0, 1.4, 0),
+  toPos: HOME_POS.clone(), toTarget: HOME_TARGET.clone(),
   ctrl: REDUCED ? null : INTRO_CTRL,
   intro: true,
 };
 if (REDUCED) fly.t = 0;
+/** Intro-Flug abkürzen: der Rest dauert dann nur noch ~0,6 s (weich, kein Sprung). */
+function hurryIntro() {
+  if (!fly?.intro) return;
+  const l = $('loader');
+  if (l && !l.classList.contains('fade')) return; // Tippen auf den Ladebildschirm überspringt erst das Warten dort
+  fly.t = Math.max(fly.t, 0);
+  fly.dur = Math.min(fly.dur, 0.6 / Math.max(0.05, 1 - fly.t));
+}
+canvas.addEventListener('pointerdown', hurryIntro);
+addEventListener('wheel', hurryIntro, { passive: true });
+addEventListener('keydown', hurryIntro);
 
 const clock = new THREE.Clock();
 let first = true;
@@ -1549,6 +1643,7 @@ const tmp = new THREE.Vector3(), lastFollow = new THREE.Vector3();
 
 function frame() {
   const rawDt = clock.getDelta();
+  if (MEASURE && fly?.intro && rawDt > 0.06) (window.__flyStalls ||= []).push([Math.round(performance.now() - (window.__loadT0 || 0)), Math.round(rawDt * 1000), Math.round(Math.max(fly.t, 0) * 100)]);
   const dt = Math.min(rawDt, 0.05);
   window.__fps = Math.round(0.9 * (window.__fps || 60) + 0.1 / Math.max(rawDt, 1e-3));
   const t = clock.elapsedTime;
@@ -1572,8 +1667,10 @@ function frame() {
 
   // Kamera
   if (fly) {
-    fly.t += dt / fly.dur;
-    const k = easeInOut(Math.min(Math.max(fly.t, 0), 1));
+    fly.t += (fly.intro ? Math.min(rawDt, 0.25) : dt) / fly.dur; // Intro: echte Zeit, sonst bleibt der Flug bei einem Hänger stehen
+    const ft = Math.min(Math.max(fly.t, 0), 1);
+    // Intro: mit Schwung los (der Tauchgang im Ladebild geht nahtlos weiter), nur am Ende weich abbremsen
+    const k = fly.intro ? 1 - Math.pow(1 - ft, 2.2) : easeInOut(ft);
     if (fly.crab) {
       fly.toTarget.copy(fly.crab.worldPos()).y += 0.7;
     }
@@ -1614,6 +1711,8 @@ function frame() {
     [controls.minPolarAngle, controls.maxPolarAngle] = polarLimits();
     touch.update(dt);
     panByKeys(dt);
+    // Einstellung „Langsam drehen“: nach 15 s ohne Eingabe gemächlich um die Insel
+    controls.autoRotate = S.autoRotate && !REDUCED && !selected && !following && !settings.isOpen() && performance.now() - lastInputAt > 15000;
     controls.update();
     keepInSea();
   }
@@ -1630,7 +1729,7 @@ function frame() {
     LOAD.set(100, tr('load.done'));
     document.documentElement.dataset.bereit = '1'; // für die automatischen Tests
     window.__seaReady = true;
-    if (params.has('ladezeit')) showLoadTimes();
+    if (MEASURE) showLoadTimes();
     // große Blasenwolke wischt den Ladebildschirm weg, dahinter beginnt der Tauchflug
     window.__introBurst?.();
     setTimeout(() => $('loader').classList.add('fade'), REDUCED ? 0 : 450);
@@ -1639,16 +1738,25 @@ function frame() {
   requestAnimationFrame(frame);
 }
 
-/** ?ladezeit: Liste der Ladeschritte mit Zeit und längsten Hängern (zum Ausmessen auf dem Handy). */
+/** ?ladezeit (nur im eigenen Netz): Liste der Ladeschritte mit Zeit und längsten Hängern (zum Ausmessen auf dem Handy). */
 function showLoadTimes() {
-  const log = window.__loadLog || [], stalls = (window.__loadStalls || []).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const log = window.__loadLog || [], stalls = (window.__loadStalls || []).sort((a, b) => b[1] - a[1]).slice(0, 10);
   const el = document.createElement('pre');
   el.style.cssText = 'position:fixed;left:8px;top:8px;z-index:99;background:rgba(0,0,0,.78);color:#fff;font:11px/1.5 monospace;padding:10px 12px;border-radius:10px;max-width:92vw;white-space:pre-wrap;pointer-events:auto';
   el.textContent = 'Ladeschritte (ms seit Start)\n' + log.map(([ms, p, l]) => `${String(ms).padStart(6)}  ${String(p).padStart(3)} %  ${l}`).join('\n')
-    + `\n${String(Math.round(performance.now() - (window.__loadT0 || 0))).padStart(6)}  fertig\n\nLängste Hänger (Start, Dauer, Schritt)\n` + stalls.map(([at, d, l]) => `${String(at).padStart(6)}  ${String(d).padStart(5)} ms  ${l}`).join('\n')
+    + `\n${String(Math.round(performance.now() - (window.__loadT0 || 0))).padStart(6)}  fertig\n\nLängste Hänger über 90 ms (Start, Dauer, Schritt)\n` + stalls.map(([at, d, l]) => `${String(at).padStart(6)}  ${String(d).padStart(5)} ms  ${l}`).join('\n')
     + `\n\n${navigator.userAgent}\nGPU: ${gpuName || '?'}`;
   el.addEventListener('click', () => el.remove());
   document.body.appendChild(el);
+  // nach dem Reinfliegen: langsame Bilder während des Flugs anhängen (bis dahin „läuft noch“)
+  const base = el.textContent;
+  el.textContent = base + '\n\nReinfliegen: läuft noch …';
+  const flyDone = setInterval(() => {
+    if (fly?.intro) return;
+    clearInterval(flyDone);
+    const fs = window.__flyStalls || [];
+    el.textContent = base + `\n\nReinfliegen fertig: ${fs.length} langsame Bilder (> 60 ms)\n` + fs.slice(0, 12).map(([at, d, p]) => `${String(at).padStart(6)}  ${String(d).padStart(5)} ms  bei ${p} % des Flugs`).join('\n');
+  }, 300);
 }
 
 /* ---------- Namensschilder: nur die nächsten, ohne Überlappung ---------- */
@@ -1668,7 +1776,7 @@ function chooseLabels() {
   for (const c of order) {
     if (!c.root.visible) continue;
     const isPrio = prio.includes(c);
-    if (!isPrio && shown >= MAX_LABELS) break;
+    if (!isPrio && (shown >= MAX_LABELS || !S.labels)) break;
     if (!isPrio && c.camDist >= LABEL_RANGE) continue;
     projV.set(c.x, c.root.position.y + c.labelY + c.hop, c.z).project(camera);
     if (projV.z > 1 || Math.abs(projV.x) > 1.1 || Math.abs(projV.y) > 1.1) continue;
@@ -1684,9 +1792,21 @@ function chooseLabels() {
 
 /* ---------- Automatische Qualität ---------- */
 // Läuft es dauerhaft ruckelig, wird stufenweise vereinfacht (Auflösung, Leuchten, Schatten).
-const quality = { level: 0, shadowK: 1, acc: 0, frames: 0, warm: 0, locked: params.has('hq') };
+const quality = { level: 0, shadowK: 1, acc: 0, frames: 0, warm: 0, locked: params.has('hq'), bloomOk: true };
+const BASE_PR = maxPixelRatio, BASE_MAP = sun.shadow.mapSize.x;
+/** Stufe 0–3 anwenden: 0 = voll, 1 = weniger Auflösung, 2 = ohne Leuchten, 3 = einfache Schatten. high = mehr als Standard. */
+function applyQualityLevel(level, high = false) {
+  quality.level = level;
+  maxPixelRatio = high ? Math.min(devicePixelRatio, 2) : level === 0 ? BASE_PR : level === 3 ? 1 : Math.max(1, BASE_PR * 0.75);
+  quality.bloomOk = level < 2;
+  quality.shadowK = [1, 1, 0.5, 0.3][level];
+  const map = high ? 2048 : level === 3 ? 1024 : BASE_MAP;
+  if (sun.shadow.mapSize.x !== map) { sun.shadow.mapSize.set(map, map); sun.shadow.map?.dispose(); sun.shadow.map = null; }
+  bloom.enabled = quality.bloomOk && S.bloom;
+  resize();
+}
 function adaptQuality(rawDt) {
-  if (quality.locked || document.hidden || rawDt > 3) return; // nur echte Pausen (Tab-Wechsel) ignorieren
+  if (quality.locked || S.quality !== 'auto' || document.hidden || rawDt > 3) return; // nur echte Pausen (Tab-Wechsel) ignorieren
   quality.warm += rawDt;
   if (quality.warm < 4) return; // Start (Shader, Texturen) nicht mitzählen
   quality.acc += rawDt; quality.frames++;
@@ -1694,11 +1814,34 @@ function adaptQuality(rawDt) {
   const fps = quality.frames / quality.acc;
   quality.acc = 0; quality.frames = 0;
   if (fps >= 40 || quality.level >= 3) return;
-  quality.level++;
-  if (quality.level === 1) { maxPixelRatio = Math.max(1, maxPixelRatio * 0.75); resize(); }
-  if (quality.level === 2) { bloom.enabled = false; quality.shadowK = 0.5; }
-  if (quality.level === 3) { maxPixelRatio = 1; sun.shadow.mapSize.set(1024, 1024); sun.shadow.map?.dispose(); sun.shadow.map = null; quality.shadowK = 0.3; resize(); }
+  applyQualityLevel(quality.level + 1);
   console.info(`[Stargazer Sea] Qualität reduziert auf Stufe ${quality.level} (${fps.toFixed(0)} fps)`);
+}
+
+/* ---------- Einstellungen anwenden (siehe settings.js) ---------- */
+settings.onChange('quality', (m) => {
+  quality.acc = 0; quality.frames = 0; quality.warm = 0; // Auto misst danach neu
+  if (m === 'high') applyQualityLevel(0, true);
+  else applyQualityLevel(m === 'mid' ? 1 : m === 'low' ? 3 : 0);
+}, S.quality !== 'auto');
+settings.onChange('bloom', (on) => { bloom.enabled = on && quality.bloomOk; });
+settings.onChange('shadows', (on) => { sun.castShadow = on; });
+let fpsTimer = null;
+settings.onChange('fps', (on) => {
+  $('fps').classList.toggle('hidden', !on);
+  clearInterval(fpsTimer);
+  if (on) fpsTimer = setInterval(() => { $('fps').textContent = `${window.__fps || 0} fps · Q${quality.level}`; }, 500);
+});
+const TEMPO0 = TOUCH.TEMPO;
+settings.onChange('camSpeed', (v) => {
+  controls.rotateSpeed = v; controls.zoomSpeed = v; controls.panSpeed = v;
+  TOUCH.TEMPO = TEMPO0 * v;
+});
+settings.onChange('theme', (v) => {
+  if (v === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = v;
+});
+for (const [k, cls] of [['hints', 'no-hints'], ['legend', 'no-legend'], ['newest', 'no-newest']]) {
+  settings.onChange(k, (on) => document.body.classList.toggle(cls, !on));
 }
 
 /** Blickpunkt bleibt über der Insel: Verschieben/Zoomen führt nicht aus dem Meer hinaus. */

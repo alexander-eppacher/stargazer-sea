@@ -54,7 +54,8 @@ Die Zeit läuft ab deinem ersten Stern und ist für alle Besucher gleich. Im Sam
 - 🌙 Tag und Nacht nach deiner Uhrzeit, 🎄 Winter- und 🎃 Halloween-Deko, 🎈 Krabbentag am Jahrestag des Sterns
 - ⭐ Krabbe des Tages, Schatzkiste mit Konfetti, leise Unterwasser-Geräusche (standardmäßig aus)
 - 🌊 Tauchgang beim Laden (Tippen überspringt); „Bewegung reduzieren“ des Betriebssystems wird beachtet
-- 🌍 Deutsch und Englisch: oben links umschalten (sonst nach Sprache des Browsers)
+- ⚙️ Einstellungen (Zahnrad oben rechts): Qualität, Schatten, Leuchten, Lautstärke, Sprache, Kamera-Tempo, Hell/Dunkel und was angezeigt wird
+- 🌍 Deutsch und Englisch: in den Einstellungen umschalten (sonst nach Sprache des Browsers)
 
 ## Fragen und Antworten
 
@@ -144,6 +145,7 @@ Hinweis: GitHub schaltet zeitgesteuerte Abläufe in öffentlichen Repos nach 60 
 | `js/intro.js` | Tauchgang beim Laden |
 | `js/i18n.js`, `js/lang.js` | Alle Texte auf Deutsch und Englisch, Sprach-Umschalter |
 | `js/sound.js` | Unterwasser-Klangteppich und Blubbern (CC0) |
+| `js/settings.js` | Einstellungen (Seitenleiste, gespeichert im Browser) |
 | `crabs.json` | Alle Krabben (pflegt die Action) |
 | `data/rarities.json` | Seltenheiten, Hüte, Chancen |
 | `tests/` | Automatische Tests |
